@@ -229,7 +229,7 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.reload()
         self.assertEqual(p.evaluate("tableById('crops').sampleDisplay"), 'percent')
 
-    def test_measurement_coverage_uses_each_cell_before_measurement_filters(self):
+    def test_filter_coverage_uses_each_cell_before_all_table_filters(self):
         self.add_definition()
         result = self.page.evaluate("""()=>{
           const previous=DATA.farmers;
@@ -238,7 +238,7 @@ class FeedbackBrowserTests(unittest.TestCase):
             e:{values:{'Net Income':e,Crop:crop}}});
           try{
             DATA.farmers=[
-              ...Array.from({length:15},(_,i)=>record('onion'+i,'Onion','Female',i<3?10:100,i===0?null:20)),
+              ...Array.from({length:14},(_,i)=>record('onion'+i,'Onion','Female',i<3?10:100,i===0?null:20)),
               ...Array.from({length:5},(_,i)=>record('tomato'+i,'Tomato','Female',i<2?10:100,20)),
               record('male','Onion','Male',10,20),record('excluded','Onion','Female',10,20,true),
               {uid:'baseline-only',matched:false,b:{values:{'Net income':10,'Baseline Crop':'Onion',Gender:'Orphan'}}}
@@ -261,7 +261,13 @@ class FeedbackBrowserTests(unittest.TestCase):
             combined.stats=['count'];const count=read(combined,'Female','Onion','aggregate');
             const formula=clone(t);formula.metrics=['custom-test-change'];formula.periods=['value'];formula.change=false;
             const calculated=read(formula,'Female','Onion','value');
-            return {baseline,endline,tomato,male,aggregateResult,count,calculated,empty:emptyEl.textContent};
+            const categoryOnly=clone(t);categoryOnly.filters.measures=group();
+            const category=read(categoryOnly,'Female','Onion','b');
+            const rawNumeric=clone(t);rawNumeric.filters.measures=group();rawNumeric.filters.source.children.push({kind:'condition',id:'raw-threshold',field:'b:Net income',op:'lt',value:50});
+            const raw=read(rawNumeric,'Female','Onion','b');
+            const noOp=clone(t);noOp.filters=emptyFilters();noOp.filters.source.children=[{kind:'condition',id:'present',field:'b:Baseline Crop',op:'present'}];
+            const unchanged=read(noOp,'Female','Onion','b');
+            return {baseline,endline,tomato,male,aggregateResult,count,calculated,category,raw,unchanged,empty:emptyEl.textContent};
           }finally{DATA.farmers=previous;}
         }""")
         self.assertEqual(result['baseline']['text'], 'N=3, 20% of total records')
@@ -271,7 +277,10 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.assertEqual(result['aggregateResult']['text'], 'N=5, 16.7% of total records')
         self.assertEqual(result['count']['text'], 'N=6, 20% of total records')
         self.assertEqual(result['calculated']['text'], 'N=2, 13.3% of total records')
-        self.assertEqual(result['empty'], 'N=0, no records before measurement filters')
+        self.assertEqual(result['category']['text'], 'N=14, 93.3% of total records')
+        self.assertEqual(result['raw']['text'], 'N=3, 20% of total records')
+        self.assertEqual(result['unchanged']['text'], 'N=15')
+        self.assertEqual(result['empty'], 'N=0, no records before table filters')
         self.assertIn('3 of 15 total records', result['baseline']['title'])
 
     def test_measurement_filter_coverage_apply_reload_and_clear(self):
@@ -302,6 +311,30 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.assertIn('% of total records', p.locator('#builder-preview .cell-button small').first.inner_text())
         self.assertEqual(p.locator('#builder-preview .cell-button.change small').count(), 0)
         p.evaluate('closeWork()')
+        p.locator('#table-overall [data-action="clear-filters"]').click()
+        self.assertTrue(all(label.startswith('N=') and '%' not in label for label in samples.all_text_contents()))
+        self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 1)
+
+    def test_category_filter_coverage_apply_reload_and_clear(self):
+        p = self.page
+        p.evaluate("openFilters('overall');addFilterField('e:Crop')")
+        p.locator('[data-action="apply-filters"]').click()
+        # Selecting all answers is a no-op, so the normal display remains available.
+        self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 1)
+        p.evaluate("openFilters('overall')")
+        p.locator('[data-action="filter-select-none"]').click()
+        p.locator('[data-answer="Onion"]').check()
+        p.locator('[data-action="apply-filters"]').click()
+        samples = p.locator('#table-overall .cell-button:not(.change) small')
+        self.assertTrue(all('N=' in label and '% of total records' in label for label in samples.all_text_contents()))
+        self.assertEqual(p.locator('#table-overall .cell-button.change small').count(), 0)
+        counts = p.evaluate("(()=>{const d=calculate(tableById('overall'));return {included:d.included.length,all:d.all.length,total:d.rows[0].cells[0].totalRecords}})()")
+        self.assertLess(counts['included'], counts['all'])
+        self.assertEqual(counts['total'], counts['all'])
+        before = samples.all_text_contents()
+        p.reload()
+        self.assertEqual(samples.all_text_contents(), before)
+        p.locator('#table-overall').screenshot(path=str(ARTIFACTS / 'category-filter-coverage.png'))
         p.locator('#table-overall [data-action="clear-filters"]').click()
         self.assertTrue(all(label.startswith('N=') and '%' not in label for label in samples.all_text_contents()))
         self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 1)
