@@ -229,6 +229,83 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.reload()
         self.assertEqual(p.evaluate("tableById('crops').sampleDisplay"), 'percent')
 
+    def test_measurement_coverage_uses_each_cell_before_measurement_filters(self):
+        self.add_definition()
+        result = self.page.evaluate("""()=>{
+          const previous=DATA.farmers;
+          const record=(uid,crop,gender,b,e,excluded=false)=>({uid,matched:true,
+            b:{values:{'Net income':b,'Baseline Crop':excluded?'Excluded':crop,Gender:gender}},
+            e:{values:{'Net Income':e,Crop:crop}}});
+          try{
+            DATA.farmers=[
+              ...Array.from({length:15},(_,i)=>record('onion'+i,'Onion','Female',i<3?10:100,i===0?null:20)),
+              ...Array.from({length:5},(_,i)=>record('tomato'+i,'Tomato','Female',i<2?10:100,20)),
+              record('male','Onion','Male',10,20),record('excluded','Onion','Female',10,20,true),
+              {uid:'baseline-only',matched:false,b:{values:{'Net income':10,'Baseline Crop':'Onion',Gender:'Orphan'}}}
+            ];
+            const t=clone(tableById('overall'));t.metrics=['net'];t.stats=['mean'];t.rows=['b:Gender'];t.columns=['e:Crop'];
+            t.sources=sourceSettings(t);t.sources.records='all';t.filters=emptyFilters();
+            t.filters.source.children=[{kind:'condition',id:'category',field:'b:Baseline Crop',op:'neq',value:'Excluded'}];
+            t.filters.measures.children=[{kind:'condition',id:'threshold',field:'m:net:b',op:'lt',value:50}];
+            const read=(table,rowName,groupName,period)=>{
+              const d=calculate(table),row=d.rows.find(r=>r.group.label===rowName),h=d.headers.find(h=>h.group.label===groupName&&h.period===period),c=row.cells[d.headers.indexOf(h)];
+              const el=document.createElement('div');el.innerHTML=cellSampleHTML(table,row.metric,h,c,d);
+              return {n:c.n,total:c.totalRecords,text:el.textContent,title:el.firstChild?.title||''};
+            };
+            const baseline=read(t,'Female','Onion','b'),endline=read(t,'Female','Onion','e');
+            const tomato=read(t,'Female','Tomato','b'),male=read(t,'Male','Onion','b');
+            const d=calculate(t),orphan=d.rows.find(r=>r.group.label==='Orphan'),empty=d.headers.find(h=>h.period==='e'&&orphan.cells[d.headers.indexOf(h)].totalRecords===0);
+            const emptyEl=document.createElement('div');emptyEl.innerHTML=cellSampleHTML(t,'net',empty,orphan.cells[d.headers.indexOf(empty)],d);
+            const combined=clone(t);combined.sources.mode='aggregate';combined.change=false;
+            const aggregateResult=read(combined,'Female','Onion','aggregate');
+            combined.stats=['count'];const count=read(combined,'Female','Onion','aggregate');
+            const formula=clone(t);formula.metrics=['custom-test-change'];formula.periods=['value'];formula.change=false;
+            const calculated=read(formula,'Female','Onion','value');
+            return {baseline,endline,tomato,male,aggregateResult,count,calculated,empty:emptyEl.textContent};
+          }finally{DATA.farmers=previous;}
+        }""")
+        self.assertEqual(result['baseline']['text'], 'N=3, 20% of total records')
+        self.assertEqual(result['endline']['text'], 'N=2, 13.3% of total records')
+        self.assertEqual(result['tomato']['text'], 'N=2, 40% of total records')
+        self.assertEqual(result['male']['text'], 'N=1, 100% of total records')
+        self.assertEqual(result['aggregateResult']['text'], 'N=5, 16.7% of total records')
+        self.assertEqual(result['count']['text'], 'N=6, 20% of total records')
+        self.assertEqual(result['calculated']['text'], 'N=2, 13.3% of total records')
+        self.assertEqual(result['empty'], 'N=0, no records before measurement filters')
+        self.assertIn('3 of 15 total records', result['baseline']['title'])
+
+    def test_measurement_filter_coverage_apply_reload_and_clear(self):
+        p = self.page
+        p.evaluate("openFilters('overall');addFilterField('m:net:e')")
+        p.get_by_label('Maximum value', exact=True).fill('100000')
+        p.locator('[data-action="apply-filters"]').click()
+        samples = p.locator('#table-overall .cell-button:not(.change) small')
+        self.assertGreater(samples.count(), 0)
+        self.assertTrue(all('N=' in label and '% of total records' in label for label in samples.all_text_contents()))
+        self.assertEqual(p.locator('#table-overall .cell-button.change small').count(), 0)
+        self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 0)
+        self.assertIn('Sample size: N and %', p.locator('#table-overall .table-meta').inner_text())
+        before = samples.all_text_contents()
+        p.reload()
+        self.assertEqual(samples.all_text_contents(), before)
+        for width in [1280, 390, 320]:
+            p.set_viewport_size({'width':width,'height':1000})
+            overflow = samples.evaluate_all("""els=>els.filter(el=>{
+              const cell=el.closest('td').getBoundingClientRect(),range=document.createRange();range.selectNodeContents(el);
+              return [...range.getClientRects()].some(r=>r.left<cell.left-1||r.right>cell.right+1);
+            }).map(el=>el.textContent)""")
+            self.assertEqual(overflow, [])
+            self.assertLessEqual(p.evaluate('document.documentElement.scrollWidth'), width)
+            if width == 1280:
+                p.locator('#table-overall').screenshot(path=str(ARTIFACTS / 'measurement-filter-coverage.png'))
+        p.evaluate("openBuilder('overall')")
+        self.assertIn('% of total records', p.locator('#builder-preview .cell-button small').first.inner_text())
+        self.assertEqual(p.locator('#builder-preview .cell-button.change small').count(), 0)
+        p.evaluate('closeWork()')
+        p.locator('#table-overall [data-action="clear-filters"]').click()
+        self.assertTrue(all(label.startswith('N=') and '%' not in label for label in samples.all_text_contents()))
+        self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 1)
+
     def test_chart_report_snapshot_and_destination_removal(self):
         p = self.page
         p.evaluate("openChart('crops')")
