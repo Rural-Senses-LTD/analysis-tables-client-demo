@@ -270,17 +270,17 @@ class FeedbackBrowserTests(unittest.TestCase):
             return {baseline,endline,tomato,male,aggregateResult,count,calculated,category,raw,unchanged,empty:emptyEl.textContent};
           }finally{DATA.farmers=previous;}
         }""")
-        self.assertEqual(result['baseline']['text'], 'N=3, 20% of total records')
-        self.assertEqual(result['endline']['text'], 'N=2, 13.3% of total records')
-        self.assertEqual(result['tomato']['text'], 'N=2, 40% of total records')
-        self.assertEqual(result['male']['text'], 'N=1, 100% of total records')
-        self.assertEqual(result['aggregateResult']['text'], 'N=5, 16.7% of total records')
-        self.assertEqual(result['count']['text'], 'N=6, 20% of total records')
-        self.assertEqual(result['calculated']['text'], 'N=2, 13.3% of total records')
-        self.assertEqual(result['category']['text'], 'N=14, 93.3% of total records')
-        self.assertEqual(result['raw']['text'], 'N=3, 20% of total records')
+        self.assertEqual(result['baseline']['text'], 'N=3 20% of total records')
+        self.assertEqual(result['endline']['text'], 'N=2 13% of total records')
+        self.assertEqual(result['tomato']['text'], 'N=2 40% of total records')
+        self.assertEqual(result['male']['text'], 'N=1 100% of total records')
+        self.assertEqual(result['aggregateResult']['text'], 'N=5 17% of total records')
+        self.assertEqual(result['count']['text'], 'N=6 20% of total records')
+        self.assertEqual(result['calculated']['text'], 'N=2 13% of total records')
+        self.assertEqual(result['category']['text'], 'N=14 93% of total records')
+        self.assertEqual(result['raw']['text'], 'N=3 20% of total records')
         self.assertEqual(result['unchanged']['text'], 'N=15')
-        self.assertEqual(result['empty'], 'N=0, no records before table filters')
+        self.assertEqual(result['empty'], 'N=0 no records before table filters')
         self.assertIn('3 of 15 total records', result['baseline']['title'])
 
     def test_measurement_filter_coverage_apply_reload_and_clear(self):

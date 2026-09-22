@@ -68,6 +68,7 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .matrix .cell-value{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:5px;white-space:nowrap}
 .matrix .cell-unit{font-size:.75em;font-weight:400;color:#6b786f}
 .matrix .cell-button small{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:right}
+.matrix .cell-sample-coverage{display:block;color:var(--dark)}
 .builder-preview-panel .matrix-context{gap:6px 14px;margin:0 0 10px}.builder-preview-panel .table-source-context{font-size:10px}.builder-preview-panel .context-label{font-size:10px}.builder-preview-panel .matrix-statistic{font-size:11px}
 @media(max-width:760px){.table-tools{margin-left:0;width:100%;justify-content:flex-start}.table-tools>.table-source-context{width:100%;max-width:none;margin:0 0 5px;padding:0;border:0}.matrix .cell-value{gap:4px}}
 
@@ -749,9 +750,9 @@ function sampleText(t,metric,h,c,all,mode='count'){
 function cellSampleHTML(t,metric,h,c,data){
   if(c.stat==='change')return '';
   if(c.totalRecords!==undefined){
-    const coverage=c.totalRecords?fmt(c.n/c.totalRecords*100)+'% of total records':'no records before table filters';
+    const coverage=c.totalRecords?fmt(c.n/c.totalRecords*100,0)+'% of total records':'no records before table filters';
     const title='N='+fmt(c.n,0)+' of '+fmt(c.totalRecords,0)+' total records in this cell before any table filters. Grouping, selected sources and record matching still apply. '+(c.stat==='count'?'N counts records.':'N excludes missing values; the total includes them.');
-    return `<small title="${esc(title)}">N=${fmt(c.n,0)}, ${esc(coverage)}</small>`;
+    return `<small title="${esc(title)}"><span>N=${fmt(c.n,0)}</span> <span class="cell-sample-coverage">${esc(coverage)}</span></small>`;
   }
   if(['count','n'].includes(c.stat))return '';
   return `<small title="${esc(sampleText(t,metric,h,c,data.all,'count')+'; '+sampleText(t,metric,h,c,data.all,'percent')+' before table filters')}">${esc(sampleText(t,metric,h,c,data.all,t.sampleDisplay))}</small>`;
