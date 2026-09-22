@@ -67,6 +67,7 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .matrix-statistic{display:inline-flex;align-items:baseline;gap:8px;font-size:13px;color:#355d48}.matrix-statistic strong{font-weight:600}
 .matrix .cell-value{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:5px;white-space:nowrap}
 .matrix .cell-unit{font-size:.75em;font-weight:400;color:#6b786f}
+.matrix .cell-button small{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:right}
 .builder-preview-panel .matrix-context{gap:6px 14px;margin:0 0 10px}.builder-preview-panel .table-source-context{font-size:10px}.builder-preview-panel .context-label{font-size:10px}.builder-preview-panel .matrix-statistic{font-size:11px}
 @media(max-width:760px){.table-tools{margin-left:0;width:100%;justify-content:flex-start}.table-tools>.table-source-context{width:100%;max-width:none;margin:0 0 5px;padding:0;border:0}.matrix .cell-value{gap:4px}}
 
@@ -846,7 +847,7 @@ function matrixHTML(t,data,preview=false){
         const c=r.cells[h.index],n=c.stat==='change'?c.cohort:['count','n'].includes(c.stat)?c.value:c.n;
         const formatted=`${c.stat==='change'&&c.value>0?'+':''}${fmt(c.value,['n','count'].includes(c.stat)?0:c.stat==='change'?1:precision)}${c.stat==='change'&&c.value!==null?'%':''}`;
         const count=['count','n'].includes(c.stat),unit=Number.isFinite(c.value)&&c.stat!=='change'?(count?'records':m.unit):'';
-        return `<td><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value"><span>${formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${count?'':`<small title="${esc(sampleText(t,metric,h,c,data.all,'count')+'; '+sampleText(t,metric,h,c,data.all,'percent')+' before table filters')}">${esc(sampleText(t,metric,h,c,data.all,t.sampleDisplay))}</small>`}${t.areaCounts&&leaves(t.filters.measures).length?`<small class="coverage">${fmt(c.share)}% of ${fmt(c.eligible,0)} eligible</small>`:''}</button></td>`;
+        return `<td><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value"><span>${formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${count||c.stat==='change'?'':`<small title="${esc(sampleText(t,metric,h,c,data.all,'count')+'; '+sampleText(t,metric,h,c,data.all,'percent')+' before table filters')}">${esc(sampleText(t,metric,h,c,data.all,t.sampleDisplay))}</small>`}${c.stat!=='change'&&t.areaCounts&&leaves(t.filters.measures).length?`<small class="coverage">${fmt(c.share)}% of ${fmt(c.eligible,0)} eligible</small>`:''}</button></td>`;
       }).join('')}</tr>`;
     }
     body+='</tbody>';
