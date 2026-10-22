@@ -81,5 +81,40 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertEqual(options, ['Side by side: one column per source', 'Combined: pool all sources into one result'])
 
 
+    def test_variety_and_project_join_exact_names_only(self):
+        p = self.page
+        result = p.evaluate("""(() => {
+          const rows = DATA.farmers.filter(f => f.b).map(f => f.b.values);
+          const names = {};
+          rows.forEach(v => { const n = String(v.Name || '').replace(/\s+/g, ' ').trim().toLowerCase(); names[n] = (names[n] || 0) + 1; });
+          const duplicated = rows.filter(v => names[String(v.Name || '').replace(/\s+/g, ' ').trim().toLowerCase()] > 1);
+          const fields = ['b:Variety', 'b:Project'].map(id => fieldInfo(id));
+          return {variety: rows.filter(v => v.Variety).length, project: rows.filter(v => v.Project).length, total: rows.length,
+                  duplicatedFilled: duplicated.filter(v => v.Variety || v.Project).length, fields: fields.map(f => f && f.type),
+                  varietyOptions: fieldInfo('b:Variety').options.length};
+        })()""")
+        self.assertEqual((result['variety'], result['project'], result['total']), (208, 208, 254))
+        self.assertEqual(result['duplicatedFilled'], 0, 'Duplicate farmer names must stay blank')
+        self.assertEqual(result['fields'], ['category', 'category'])
+        self.assertGreater(result['varietyOptions'], 5)
+
+    def test_project_from_profile_list_matches_endline_project(self):
+        p = self.page
+        mismatches = p.evaluate("""DATA.farmers.filter(f => f.b && f.e && f.b.values.Project && f.e.values.Project && f.b.values.Project !== f.e.values.Project).length""")
+        self.assertLessEqual(mismatches, 1)
+
+    def test_table_can_group_by_variety_and_original_values_unchanged(self):
+        p = self.page
+        counts = p.evaluate("""(() => {
+          const t = clone(state.tables[0]);
+          t.rows = ['b:Variety'];
+          const data = calculate(t);
+          return {rows: data.rows.length, sources: DATA.inputs.length, fingerprint: DATA.fingerprint};
+        })()""")
+        self.assertGreater(counts['rows'], 5)
+        self.assertEqual(counts['sources'], 3)
+        self.assertEqual(counts['fingerprint'], '626fc710f90d3f6d4b50ad3d966d35eba9ba244065fdfb377342cb369ef289a3')
+
+
 if __name__ == '__main__':
     unittest.main()
