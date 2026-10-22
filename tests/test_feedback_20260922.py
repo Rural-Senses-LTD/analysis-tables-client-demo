@@ -171,14 +171,14 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_drag_success_and_rejection(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.drag('#fields-list [data-field="e:Crop"]', '#builder-preview th.row-axis-header')
-        self.assertEqual(p.evaluate("work.draft.rows"), ["e:Crop"])
+        self.drag('#fields-list [data-field="q:crop"]', '#builder-preview th.row-axis-header')
+        self.assertEqual(p.evaluate("work.draft.rows"), ["q:crop"])
         self.drag('#fields-list [data-field="b:Gender"]', '#builder-preview thead th.source-heading')
         self.assertEqual(p.evaluate("work.draft.columns"), ["b:Gender"])
         self.drag('[data-drag-kind="measurement"][data-field="net"]', '#builder-preview tbody td')
         self.assertIn("net", p.evaluate("work.draft.metrics"))
         before = p.evaluate("JSON.stringify(work.draft)")
-        self.drag('#fields-list [data-field="e:Region"]', '#builder-preview tbody td')
+        self.drag('#fields-list [data-field="q:region"]', '#builder-preview tbody td')
         self.assertEqual(p.evaluate("JSON.stringify(work.draft)"), before)
         self.assertIn("Drop categories", p.locator('#toast').inner_text())
 
