@@ -40,14 +40,15 @@ class FieldsAndFiltersTests(unittest.TestCase):
         p = self.page
         p.evaluate('openFilters(state.tables[0].id)')
         self.add_filter('Crop')
-        options = p.get_by_label('Match answers', exact=True).locator('option').all_inner_texts()
-        self.assertEqual(options, ['Keep only the selected answers', 'Remove the selected answers', 'Same answer as another field'])
+        options = p.locator('.filter-mode label span').all_inner_texts()
+        self.assertEqual(options, ['Keep selected', 'Remove selected', 'Same as another field'])
+        self.assertEqual(p.locator('.filter-mode legend').inner_text(), 'Match answers')
 
     def test_equal_field_filter_still_matches_same_crop_after_rename(self):
         p = self.page
         p.evaluate('openFilters(state.tables[0].id)')
         self.add_filter('Baseline Crop')
-        p.get_by_label('Match answers', exact=True).select_option('eqField')
+        p.get_by_label('Same as another field', exact=True).check()
         p.get_by_label('Comparison field', exact=True).select_option('e:Crop')
         preview = p.locator('#filter-preview').inner_text()
         self.assertRegex(preview, r'^\d+ of \d+ records match')
@@ -83,7 +84,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
 
     def test_variety_and_project_join_exact_names_only(self):
         p = self.page
-        result = p.evaluate("""(() => {
+        result = p.evaluate(r"""(() => {
           const rows = DATA.farmers.filter(f => f.b).map(f => f.b.values);
           const names = {};
           rows.forEach(v => { const n = String(v.Name || '').replace(/\s+/g, ' ').trim().toLowerCase(); names[n] = (names[n] || 0) + 1; });
@@ -114,6 +115,66 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertGreater(counts['rows'], 5)
         self.assertEqual(counts['sources'], 3)
         self.assertEqual(counts['fingerprint'], '626fc710f90d3f6d4b50ad3d966d35eba9ba244065fdfb377342cb369ef289a3')
+
+
+    def test_result_block_chips_collapse_and_zero_state(self):
+        p = self.page
+        p.evaluate('openFilters(state.tables[0].id)')
+        self.assertIn('240', p.locator('#filter-result').inner_text())
+        chips = p.locator('.suggest-chip').all_inner_texts()
+        self.assertTrue(any(c.startswith('Crop') for c in chips) and any(c.startswith('Region') for c in chips))
+        self.assertFalse([c for c in chips if c.startswith(('Name', 'Farmer_UID', 'Match_', 'Outlier_'))])
+        p.locator('.suggest-chip', has_text='Region').first.click()
+        card = p.locator('.filter-condition').first
+        self.assertEqual(card.locator('.condition-summary').inner_text(), 'All answers kept')
+        # The result block stays in view while the panel scrolls.
+        p.evaluate("document.querySelector('#filter-body').scrollTop = 9999")
+        self.assertTrue(p.locator('#filter-result').is_visible())
+        # Unselect everything: zero-match state and live summary.
+        card.get_by_role('button', name='Unselect all').click()
+        self.assertIn('No records match', p.locator('#filter-result').inner_text())
+        self.assertEqual(card.locator('.condition-summary').inner_text(), 'No answers selected')
+        card.get_by_role('button', name='Select all', exact=True).click()
+        card.locator('input[data-answer]').first.uncheck()
+        self.assertRegex(card.locator('.condition-summary').inner_text(), r'^Keeping \d+ of \d+ answers$')
+        self.assertRegex(card.locator('.answer-count').inner_text(), r'^\d+ of \d+ selected$')
+        # Collapse and expand in place.
+        toggle = card.locator('.condition-toggle')
+        toggle.click()
+        self.assertEqual(toggle.get_attribute('aria-expanded'), 'false')
+        self.assertTrue(card.locator('.condition-body').is_hidden())
+        toggle.click()
+        self.assertTrue(card.locator('.condition-body').is_visible())
+
+    def test_adding_a_third_filter_collapses_the_others(self):
+        p = self.page
+        p.evaluate('openFilters(state.tables[0].id)')
+        for name in ['Crop', 'Region', 'Wareda']:
+            self.add_filter(name)
+        states = p.locator('.condition-toggle').evaluate_all('els => els.map(e => e.getAttribute("aria-expanded"))')
+        self.assertEqual(states, ['false', 'false', 'true'])
+
+    def test_match_control_is_keyboard_operable(self):
+        p = self.page
+        p.evaluate('openFilters(state.tables[0].id)')
+        self.add_filter('Crop')
+        p.get_by_label('Remove selected', exact=True).focus()
+        p.keyboard.press('Space')
+        self.assertRegex(p.locator('.condition-summary').first.inner_text(), r'^(Nothing removed|Removing \d+ of \d+ answers)$')
+        self.assertTrue(p.get_by_label('Remove selected', exact=True).is_checked())
+        self.assertTrue(p.get_by_label('Remove selected', exact=True).evaluate('el => document.activeElement === el'))
+
+    def test_picker_puts_data_quality_fields_last(self):
+        p = self.page
+        p.evaluate('openFilters(state.tables[0].id)')
+        p.locator('[data-action="toggle-filter-picker"]').first.click()
+        p.locator('#field-search').fill('')
+        p.locator('#field-search').click()
+        options = p.locator('#field-results [role=option]').all_inner_texts()
+        self.assertTrue(options[0].startswith(('Region', 'Crop')), options[0])
+        self.assertTrue(any('Review_Flag' in o and 'data quality' in o for o in options))
+        first_admin = next(i for i, o in enumerate(options) if 'data quality' in o)
+        self.assertTrue(all('data quality' in o for o in options[first_admin:]))
 
 
 if __name__ == '__main__':

@@ -70,7 +70,7 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_same_crop_filter_ui_and_persistence(self):
         p = self.page
         p.evaluate("openFilters('crops'); addFilterField('b:Baseline Crop')")
-        p.get_by_label("Match answers", exact=True).select_option("eqField")
+        p.get_by_label("Same as another field", exact=True).check()
         p.get_by_label("Comparison field", exact=True).select_option("e:Crop")
         self.assertEqual(p.locator("#filter-error").inner_text(), "")
         p.screenshot(path=str(ARTIFACTS / "same-crop-filter.png"))
@@ -104,7 +104,7 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.locator('[data-builder-source="b"]').uncheck()
         p.locator('[data-action="apply-builder"]').click()
         p.evaluate("openFilters('crops');addFilterField('b:Baseline Crop')")
-        p.get_by_label('Match answers', exact=True).select_option('eqField')
+        p.get_by_label('Same as another field', exact=True).check()
         p.get_by_label('Comparison field', exact=True).select_option('e:Crop')
         self.assertTrue(p.locator('[data-action="apply-filters"]').is_disabled())
         self.assertIn('Baseline', p.locator('#filter-preview').inner_text())
