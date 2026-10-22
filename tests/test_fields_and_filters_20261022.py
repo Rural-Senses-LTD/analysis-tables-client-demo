@@ -177,5 +177,53 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertTrue(all('data quality' in o for o in options[first_admin:]))
 
 
+    def region_cells(self, minimum):
+        return self.page.evaluate("""(minimum) => {
+          const t = clone(state.tables.find(x => x.id === 'region'));
+          if (minimum) t.filters.measures.children = [{kind: 'condition', id: 'min-n', field: 'n:count', op: 'gte', value: String(minimum), high: '', refs: [], values: []}];
+          return calculate(t).rows.flatMap(r => r.cells.map(c => ({stat: c.stat, n: c.n, value: c.value, hidden: c.suppressedN || 0})));
+        }""", minimum)
+
+    def test_n_count_hides_cells_below_threshold_and_keeps_threshold(self):
+        base = self.region_cells(0)
+        self.assertFalse([c for c in base if c['hidden']])
+        thin = [c for c in base if c['n'] and c['n'] < 5]
+        self.assertTrue(thin, 'Fixture needs cells with fewer than 5 records')
+        cells = self.region_cells(5)
+        for before, after in zip(base, cells):
+            if before['n'] and before['n'] < 5 and before['stat'] != 'change':
+                self.assertEqual((after['hidden'], after['value']), (5, None))
+            elif before['n'] and before['n'] >= 5:
+                self.assertEqual((after['hidden'], after['value']), (0, before['value']), 'A cell at the threshold stays visible')
+
+    def test_n_count_filter_screen_csv_and_persistence_agree(self):
+        p = self.page
+        p.evaluate("openFilters('region')")
+        p.locator('.suggest-chip', has_text='N count').click()
+        p.locator('[data-action="apply-filters"]').click()
+        screen = p.locator('#table-region .cell-suppressed').count()
+        self.assertGreater(screen, 0)
+        self.assertIn('N count at least 5 valid records per cell', p.locator('#table-region').inner_text())
+        p.evaluate("window.__csv = ''; download = (name, text) => { window.__csv = text; }")
+        p.evaluate("exportCSV(tableById('region'))")
+        csv_hidden = p.evaluate("(window.__csv.match(/\"N<5\"/g) || []).length")
+        self.assertEqual(csv_hidden, screen, 'CSV and screen must hide the same cells')
+        saved = p.evaluate("JSON.stringify(state.tables.find(t => t.id === 'region').filters.measures.children.map(c => [c.field, c.value]))")
+        self.assertEqual(saved, '[["n:count","5"]]')
+
+    def test_n_count_validation_and_listing(self):
+        p = self.page
+        for bad in ['0', 'abc', '2.5', '']:
+            message = p.evaluate("""(value) => { try { validateFilters({source: emptyGroupForTest(), measures: {kind: 'group', mode: 'all', children: [{kind: 'condition', id: 'x', field: 'n:count', op: 'gte', value, high: '', refs: [], values: []}]}}); return ''; } catch (e) { return e.message; } }""".replace('emptyGroupForTest()', "{kind: 'group', mode: 'all', children: []}"), bad)
+            self.assertIn('whole number', message, bad)
+        p.evaluate('openFilters(state.tables[0].id)')
+        self.assertIn('N count', p.locator('.suggest-row').inner_text())
+        p.locator('[data-action="toggle-filter-picker"]').first.click()
+        options = p.locator('#field-results [role=option]').all_inner_texts()
+        index = next(i for i, o in enumerate(options) if o.startswith('N count'))
+        first_admin = next(i for i, o in enumerate(options) if 'data quality' in o)
+        self.assertLess(index, first_admin)
+
+
 if __name__ == '__main__':
     unittest.main()
