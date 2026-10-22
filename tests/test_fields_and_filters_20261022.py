@@ -149,22 +149,50 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertEqual(result['got'], result['want'])
         self.assertNotEqual(result['got']['b'], result['got']['e'], 'Baseline and endline crops differ, so the columns must too')
 
-    def test_combined_and_change_columns_follow_the_first_source_and_say_so(self):
+    def test_combined_columns_count_each_source_under_its_own_answer(self):
+        p = self.page
+        result = p.evaluate("""(() => {
+          const t = clone(state.tables[0]);
+          t.cohort = 'all'; t.rows = ['q:crop']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          t.sources = {...sourceSettings(t), mode: 'aggregate'};
+          validateState({version: 1, fingerprint: DATA.fingerprint, definitions: [], tables: [t]});
+          const data = calculate(t), count = {};
+          data.rows.forEach(r => { count[r.group.label] = r.cells[0].value; });
+          const want = {};
+          for (const f of DATA.farmers) for (const [p, h] of [['b', 'Baseline Crop'], ['e', 'Crop']]) { if (!f[p]) continue; const k = f[p].values[h] || 'Blank'; want[k] = (want[k] || 0) + 1; }
+          return {count, want, note: /Combined columns count each source under its own answer/.test(matrixHTML(t, data))};
+        })()""")
+        self.assertEqual(result['count']['Wheat'], 34, 'Baseline-only wheat is not mixed with endline crops')
+        self.assertEqual(result['count']['Pepper'], result['want']['Pepper'])
+        self.assertEqual({k: v for k, v in result['count'].items() if v}, result['want'])
+        self.assertTrue(result['note'])
+
+    def test_change_columns_keep_only_records_with_the_same_answer_in_both_sources(self):
         p = self.page
         result = p.evaluate("""(() => {
           const t = clone(state.tables[0]);
           t.cohort = 'all'; t.rows = ['q:crop']; t.columns = []; t.metrics = ['yield']; t.stats = ['mean']; t.change = true; t.totals = false;
           validateState({version: 1, fingerprint: DATA.fingerprint, definitions: [], tables: [t]});
-          const data = calculate(t), wheat = data.rowGroups.find(g => g.label === 'Wheat');
-          const html = matrixHTML(t, data);
-          return {sameRecords: groupRecords(wheat, 'change') === wheat.records, endlineWheat: groupRecords(wheat, 'e').length, baselineWheat: groupRecords(wheat, 'b').length,
-                  note: /Each source uses its own answers/.test(html), legacy: calculate({...t, rows: ['b:Baseline Crop']}).rowGroups.every(g => !g.recordsBy)};
+          const data = calculate(t), i = data.headers.findIndex(h => h.stat === 'change'), got = {};
+          data.rows.forEach(r => { got[r.group.label] = r.cells[i].cohort; });
+          const same = {};
+          for (const f of DATA.farmers) { if (!f.b || !f.e) continue; const b = f.b.values['Baseline Crop'], e = f.e.values['Crop']; if (b && b === e) same[b] = (same[b] || 0) + 1; }
+          return {got, same, legacy: calculate({...t, rows: ['b:Baseline Crop']}).rowGroups.every(g => !g.recordsBy)};
         })()""")
-        self.assertTrue(result['sameRecords'])
-        self.assertEqual(result['endlineWheat'], 0)
-        self.assertEqual(result['baselineWheat'], 34)
-        self.assertTrue(result['note'])
+        self.assertEqual(result['got']['Wheat'], 0, 'Nobody has wheat in both sources')
+        for crop, n in result['same'].items():
+            self.assertEqual(result['got'][crop], n, crop)
         self.assertTrue(result['legacy'], 'Tables built on a specific source field keep their old grouping')
+
+    def test_question_matching_uses_the_projects_own_source_names(self):
+        p = self.page
+        result = p.evaluate("""(() => {
+          const saved = DATA.sources;
+          DATA.sources = [{id: 'r1', label: 'Round 1', records: []}, {id: 'r2', label: 'Round 2', records: []}, {id: 'r3', label: 'Round 3', records: []}];
+          try { return [stripSourceWord('Round 1 Crop'), stripSourceWord('Crop (Round 3)'), stripSourceWord('Crop · Round 2'), stripSourceWord('Baseline Crop')]; }
+          finally { DATA.sources = saved; }
+        })()""")
+        self.assertEqual(result, ['Crop', 'Crop', 'Crop', 'Baseline Crop'])
 
     def test_question_saved_in_a_table_survives_a_reload(self):
         p = self.page
