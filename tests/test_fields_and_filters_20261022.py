@@ -2,6 +2,7 @@
 
 Run with the existing suite: python -m unittest discover -s tests -v
 """
+import re
 import unittest
 
 import test_feedback_20260922 as previous
@@ -193,6 +194,60 @@ class FieldsAndFiltersTests(unittest.TestCase):
           finally { DATA.sources = saved; }
         })()""")
         self.assertEqual(result, ['Crop', 'Crop', 'Crop', 'Baseline Crop'])
+
+    def test_questions_have_ids_and_belong_to_the_project_not_a_source(self):
+        p = self.page
+        result = p.evaluate("""(() => {
+          const q = questionMap.get('q:crop');
+          const guess = suggestQuestionMapping();
+          const suggested = Object.entries(guess).every(([p, cols]) => Object.entries(cols).every(([h, id]) => h === 'Wareda' || DATA.questionMapping[p][h] === id));
+          const aliased = DATA.questionMapping.e.Wareda + '/' + DATA.questionMapping.b.Woreda;
+          return {id: q.questionId, period: q.period, fields: q.fields, sourceLabel: q.sourceLabel, stored: Object.keys(DATA.questionMapping),
+                  mapped: DATA.questionMapping.b['Baseline Crop'] + '/' + DATA.questionMapping.e['Crop'], suggested, aliased,
+                  ids: DATA.questions.map(x => x.id).length === new Set(DATA.questions.map(x => x.id)).size};
+        })()""")
+        self.assertEqual(result['id'], 'q:crop')
+        self.assertIsNone(result['period'])
+        self.assertEqual(result['fields'], {'b': 'b:Baseline Crop', 'e': 'e:Crop'})
+        self.assertEqual(result['mapped'], 'q:crop/q:crop')
+        self.assertTrue(result['suggested'], 'Every name-matched pair is in the stored mapping (Wareda is the one manual decision)')
+        self.assertEqual(result['aliased'], 'q:woreda/q:woreda', 'The Wareda spelling variant is stored as a mapping decision')
+        self.assertTrue(result['ids'])
+
+    def test_a_question_asked_in_one_source_leaves_the_other_source_empty(self):
+        p = self.page
+        result = p.evaluate("""(() => {
+          const t = clone(state.tables[0]);
+          t.cohort = 'all'; t.rows = ['q:gender']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          validateState({version: 1, fingerprint: DATA.fingerprint, definitions: [], tables: [t]});
+          const data = calculate(t), b = data.headers.findIndex(h => h.period === 'b'), e = data.headers.findIndex(h => h.period === 'e');
+          return {rows: data.rows.map(r => r.group.label), baseline: data.rows.map(r => r.cells[b].value), endline: data.rows.map(r => r.cells[e].value)};
+        })()""")
+        self.assertGreater(sum(result['baseline']), 200)
+        self.assertEqual([v for v in result['endline'] if v], [], 'Endline never asked about gender, so no record borrows the baseline answer')
+
+    def test_a_differently_spelled_column_can_be_mapped_to_an_existing_question(self):
+        p = self.page
+        html = (previous.ROOT / 'index.html').read_text(encoding='utf-8')
+        self.assertEqual(html.count('"Irrigation Type":"q:irrigation_type"'), 1)
+        changed = html.replace('"Irrigation Type":"q:irrigation_type"', '"Irrigation Type":"q:irrigation_method"')
+        page = self.context.new_page()
+        page.route(re.compile(r'^http://127\.0\.0\.1:\d+/(index\.html)?(\?.*)?$'), lambda route: route.fulfill(body=changed, content_type='text/html'))
+        page.goto(self.url)
+        result = page.evaluate("""(() => {
+          const q = questionMap.get('q:irrigation_method');
+          const t = clone(state.tables[0]);
+          t.cohort = 'all'; t.rows = ['q:irrigation_method']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          validateState({version: 1, fingerprint: DATA.fingerprint, definitions: [], tables: [t]});
+          const data = calculate(t), b = data.headers.findIndex(h => h.period === 'b'), e = data.headers.findIndex(h => h.period === 'e');
+          return {fields: q.fields, gone: questionMap.has('q:irrigation_type'),
+                  baseline: data.rows.reduce((n, r) => n + (r.cells[b].value || 0), 0), endline: data.rows.reduce((n, r) => n + (r.cells[e].value || 0), 0)};
+        })()""")
+        page.close()
+        self.assertEqual(result['fields'], {'b': 'b:Irrigation Method', 'e': 'e:Irrigation Type'})
+        self.assertFalse(result['gone'])
+        self.assertGreater(result['baseline'], 0)
+        self.assertGreater(result['endline'], 0)
 
     def test_question_saved_in_a_table_survives_a_reload(self):
         p = self.page
