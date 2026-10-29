@@ -357,6 +357,17 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertGreater(result['baseline'], 0)
         self.assertGreater(result['endline'], 0)
 
+    def test_question_names_are_clean(self):
+        p = self.page
+        names = p.evaluate("[...questionMap.values()].map(q => q.label)")
+        self.assertTrue(names)
+        for name in names:
+            self.assertRegex(name, r'^[A-Za-z0-9]', name)
+            self.assertNotRegex(name, r'[\s·-]$', name)
+        self.assertIn('Reported Baseline Period', names, 'A source name inside the wording is kept')
+        listed = p.evaluate("openBuilder(), [...document.querySelectorAll('#fields-list .field-row-label')].map(e => e.textContent)")
+        self.assertFalse([x for x in listed if x.startswith('·')])
+
     def test_question_saved_in_a_table_survives_a_reload(self):
         p = self.page
         p.evaluate("""(() => {
