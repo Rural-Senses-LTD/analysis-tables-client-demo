@@ -320,6 +320,57 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .filter-range .range-cohort{font-size:12px;line-height:1.5;margin:12px 0 0}
 .filter-legacy-note{margin:0;padding:9px;background:#f5f4ed;border-radius:5px}
 @media(max-width:480px){#filter-dialog .dialog-body{padding:16px}.filter-condition{padding:13px}}
+/* Filter drawer facelift: show the effect first, keep each filter compact. */
+.filter-result{position:sticky;top:-18px;z-index:3;margin:-18px -20px 14px;padding:14px 20px 12px;background:#fff;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.filter-result strong{font-size:26px;line-height:1.1;color:#2f5b43}
+.filter-result span{font-size:14px;color:#44574d}
+.filter-result .filter-meter{flex:1 0 100%;height:6px;border-radius:3px;background:#e4ece6;overflow:hidden;margin-top:6px}
+.filter-result .filter-meter i{display:block;height:100%;background:#498264;border-radius:3px;transition:width .25s ease}
+.filter-result.empty-result strong{font-size:18px;color:#8a3b2b}
+.filter-empty{padding:18px 4px 6px;text-align:left}
+.filter-empty>p:first-child{margin:0 0 12px;font-size:16px;color:var(--ink)}
+.suggest-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.suggest-chip{display:inline-flex;align-items:baseline;gap:6px;min-height:40px;padding:8px 14px;border:1px solid #bcd3c4;border-radius:999px;background:#fff;color:#2f5b43;font-size:15px}
+.suggest-chip small{color:#5d6f64}
+.suggest-chip:hover{background:#edf4ee;border-color:#6d927b}
+#filter-dialog .filter-condition{padding:0;overflow:hidden}
+.condition-head{display:flex;align-items:stretch;gap:4px;margin:0}
+.condition-toggle{flex:1;min-width:0;display:grid;grid-template-columns:auto 1fr;grid-template-areas:"chev title" "chev sum";column-gap:10px;align-items:center;text-align:left;border:0;border-radius:0;background:transparent;padding:12px 8px 12px 14px;color:var(--ink)}
+.condition-toggle:hover{background:#f6faf7}
+.condition-chevron{grid-area:chev;width:9px;height:9px;border-right:2px solid #5d7a69;border-bottom:2px solid #5d7a69;transform:rotate(45deg);margin-top:-3px;transition:transform .15s ease}
+.collapsed .condition-chevron{transform:rotate(-45deg);margin-top:0}
+.condition-title{grid-area:title;font-weight:600;font-size:15px}
+.condition-title small{margin-left:8px;font-weight:400;color:#5d6f64}
+.condition-summary{grid-area:sum;font-size:13px;color:#44574d;overflow-wrap:anywhere}
+#filter-dialog .delete-condition{align-self:center;flex:none;min-width:44px;min-height:44px;margin-right:6px;padding:0 10px;border:0;background:transparent;color:#7a3a2c;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+#filter-dialog .delete-condition:hover{background:#fbf0ed;border-radius:8px}
+.condition-body{padding:4px 14px 14px;border-top:1px solid var(--line);display:grid;gap:12px}
+.condition-body[hidden]{display:none}
+.condition-field{margin:0}
+.filter-mode{border:0;margin:0;padding:0;min-width:0;display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.filter-mode legend{padding:0;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--ink);grid-column:1/-1}
+.filter-mode label{position:relative;display:block;margin:0}
+.filter-mode input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.filter-mode span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 8px;border:1px solid #bcd3c4;margin-left:-1px;background:#fff;color:#2f5b43;font-size:14px;text-align:center;line-height:1.25}
+.filter-mode label:first-of-type span{border-radius:8px 0 0 8px;margin-left:0}
+.filter-mode label:last-of-type span{border-radius:0 8px 8px 0}
+.filter-mode input:checked+span{background:#3f7656;border-color:#3f7656;color:#fff;font-weight:600}
+.filter-mode input:focus-visible+span{outline:2px solid #286d92;outline-offset:2px;position:relative;z-index:1}
+.filter-answer-actions{align-items:center}
+.answer-count{font-size:13px;color:#44574d}
+.answer-bulk{display:flex;gap:14px}
+@media(max-width:480px){.filter-mode span{font-size:13px;padding:6px 4px}.filter-result{margin:-16px -16px 12px;padding:12px 16px 10px}.condition-toggle{padding-left:12px}}
+@media(prefers-reduced-motion:reduce){.filter-result .filter-meter i,.condition-chevron{transition:none}}
+#filter-dialog .min-n-field{display:grid;gap:6px;margin:0}
+#filter-dialog .min-n-field .min-n-input{display:flex;align-items:center;gap:10px;font-weight:400;margin:0}
+#filter-dialog .min-n-input input{margin:0}
+#filter-dialog .condition-body .help{margin:0}
+.min-n-input{display:flex;align-items:center;gap:10px}
+.min-n-input input{width:96px}
+#filter-dialog .min-n-input em{font-style:normal;font-size:14px;font-weight:400;color:#44574d}
+.cell-suppressed .cell-value,.cell-value.cell-suppressed{color:#6a7770;font-size:.85em;font-weight:500}
+
+
 
 .filter-picker .field-results{max-height:240px;overflow:auto;overscroll-behavior:contain}
 .filter-combobox>label{font-size:14px;font-weight:600;color:#365f49;margin-bottom:7px}
@@ -523,6 +574,8 @@ function compileFormula(formula,inputs){
   const f=add();if(pos!==tokens.length||!used)throw Error('Use a connected input and valid arithmetic.');return f;
 }
 function catalogue(){return [...DATA.fields.map(f=>({...f,...state.fieldOverrides?.[f.id],options:f.options?[...new Set(f.options.map(v=>state.fieldOverrides?.[f.id]?.mapping?.[String(v)]??v))]:f.options,sourceLabel:sourceName(f.period)})),...baseMetrics.flatMap(base=>{const m=metricInfo(base.id);return[...(m.sourceFields?Object.keys(m.sourceFields):['b','e']),...(m.b?['delta','pct']:[])].map(p=>({id:`m:${m.id}:${p}`,label:m.label+(p==='delta'?' change':p==='pct'?' change (%)':''),sourceId:p,period:p,sourceLabel:['delta','pct'].includes(p)?'Across sources':sourceName(p),type:'number',unit:p==='pct'?'%':m.unit,defined:true}));}),...state.definitions.map(d=>({...d,type:d.kind==='category'?'category':'number',defined:true,sourceLabel:'Defined',options:d.kind==='category'?[...new Set(recordPool({cohort:'all'}).map(r=>value(r,d.id)).filter(x=>!blank(x)))].sort():[]}))];}
+// Built-in filter that is not a data field: hides cells with too few valid records (see applyMinCellN).
+const MIN_N_FIELD={id:'n:count',label:'N count (valid records per cell)',period:'n',sourceLabel:'',type:'number',unit:'records',defined:true,virtual:true,options:[]};
 // A question asked in several data sources is listed once. Each source answers with its own field, so the data source is chosen separately.
 // Questions follow the platform model: a question belongs to the project, not to a data source. Each source maps its column headers to question IDs
 // (DATA.questionMapping[sourceId][header] = questionId), the way an uploaded file stores questions_mapping. Without a stored mapping the
@@ -561,7 +614,7 @@ const questionMap=new Map(),questionOf=new Map();
   }
 }
 const questionInfo=q=>{const members=Object.values(q.fields).map(id=>catalogue().find(x=>x.id===id)).filter(Boolean);return{...q,options:[...new Set(members.flatMap(m=>m.options||[]))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}))};};
-const fieldInfo = id => questionMap.has(id)?questionInfo(questionMap.get(id)):catalogue().find(x=>x.id===id);
+const fieldInfo = id => id===MIN_N_FIELD.id?MIN_N_FIELD:questionMap.has(id)?questionInfo(questionMap.get(id)):catalogue().find(x=>x.id===id);
 const label = id => fieldInfo(id)?.label||metricInfo(id)?.label||id;
 function cohort(t){return recordPool(t);}
 function pathFor(r,fields){return fields.map(id=>[id,blank(value(r,id))?null:String(value(r,id))]);}
@@ -569,6 +622,7 @@ const pathKey = path => JSON.stringify(path);
 const pathLabel = path => path.map(x=>x[1]??'Blank').join(' / ')||'All records';
 function benchmarkKey(r,condition){return pathKey(pathFor(r,condition.refs||[]));}
 function testCondition(r,c,benchmarks){
+  if(c.field===MIN_N_FIELD.id)return true;
   const v=value(r,c.field);
   if(c.op==='eqField'){
     const other=value(r,c.otherField);
@@ -603,6 +657,18 @@ function validateFilterSources(t){
     if(missing.length)throw Error('Select '+[...new Set(missing)].map(sourceName).join(', ')+' to compare these fields.');
   }
 }
+// The N count filter works on finished cells, so it is applied after calculate() instead of inside it.
+function minCellN(t){return Math.max(0,...leaves(t.filters.measures).filter(c=>c.field===MIN_N_FIELD.id).map(c=>Number(c.value)||0));}
+function applyMinCellN(t,data){
+  const min=minCellN(t);if(!min)return data;
+  for(const row of data.rows)for(const c of row.cells){
+    const n=c.stat==='change'?Math.min(c.b?.n??0,c.e?.n??0):['count','n'].includes(c.stat)?c.value:c.n;
+    if(finite(n)&&n>0&&n<min){c.suppressedN=min;c.value=null;}
+  }
+  return data;
+}
+const calculateCells=calculate;
+calculate=function(t){return applyMinCellN(t,calculateCells(t));};
 function filterRecords(t){
   validateFilterSources(t);
   const all=cohort(t),eligible=all.filter(r=>matches(r,t.filters.source)),benchmarks=new Map();
@@ -623,6 +689,7 @@ function validateFilters(filters){
       const f=fieldInfo(node.field);if(!f)throw Error('Choose an available field.');
       if(typeof node.id!=='string'||conditionIds.has(node.id))throw Error('Filter conditions need unique identifiers.');conditionIds.add(node.id);
       if((phase==='source')===!!(f.defined&&f.type==='number'))throw Error('Place source questions and numeric measures in their respective sections.');
+      if(f.virtual){if(node.op!=='gte'||!/^\d+$/.test(String(node.value))||Number(node.value)<1)throw Error('Enter a whole number of 1 or more for the N count.');return;}
       if(!['eq','neq','eqField','contains','notcontains','in','notin','lt','lte','gt','gte','range','missing','present','belowMedian'].includes(node.op))throw Error('Invalid filter operator.');
       if(node.op==='eqField'){
         const other=fieldInfo(node.otherField);
@@ -747,6 +814,7 @@ function mergeGroups(t,axis,keys,name){
   const id='merge-'+crypto.randomUUID();t.merges.push({id,axis,depth,paths:groups.map(g=>g.key),prefixes:[...selectedParents],label:name.trim()});return id;
 }
 function conditionText(c){
+  if(c.field===MIN_N_FIELD.id)return 'N count at least '+c.value+' valid records per cell';
   if(c.op==='eqField')return fieldOptionLabel(fieldInfo(c.field))+' equals '+fieldOptionLabel(fieldInfo(c.otherField));
   if(c.kind==='group'){if(!c.children.length)return 'None';return(c.not?'Exclude ':'')+'('+c.children.map(conditionText).join(c.mode==='all'?' AND ':' OR ')+')';}
   const op={eq:'equals',neq:'does not equal',in:'includes',notin:'excludes',lt:'<',lte:'≤',gt:'>',gte:'≥',range:'between',contains:'contains',notcontains:'does not contain',missing:'is blank',present:'is present',belowMedian:'below'}[c.op];
@@ -889,7 +957,7 @@ function sourceSummaryHTML(t,data,links=true){const sources=sourceSettings(t);da
 function appliedFilterText(c){
   if(c.kind==='group')return !c.children.length?'None':(c.not?'Exclude ':'')+'('+c.children.map(appliedFilterText).join(c.mode==='all'?' AND ':' OR ')+')';
   const numeric=fieldInfo(c.field)?.type==='number'||c.op==='belowMedian';
-  if(!numeric)return conditionText(c);
+  if(!numeric||c.field===MIN_N_FIELD.id)return conditionText(c);
   const displayed={...c,value:filterNumber(c.value,true),high:filterNumber(c.high,true)};
   if(['in','notin'].includes(c.op))displayed.values=(c.values||[]).map(v=>filterNumber(v,true));
   return conditionText(displayed);
@@ -991,7 +1059,7 @@ function matrixHTML(t,data,preview=false){
         const c=r.cells[h.index],n=c.stat==='change'?c.cohort:['count','n'].includes(c.stat)?c.value:c.n;
         const formatted=`${c.stat==='change'&&c.value>0?'+':''}${fmt(c.value,['n','count'].includes(c.stat)?0:c.stat==='change'?1:precision)}${c.stat==='change'&&c.value!==null?'%':''}`;
         const count=['count','n'].includes(c.stat),unit=Number.isFinite(c.value)&&c.stat!=='change'?(count?'records':m.unit):'';
-        return `<td><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value"><span>${formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${cellSampleHTML(t,metric,h,c,data)}</button></td>`;
+        return `<td><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,c.suppressedN?'hidden, fewer than '+c.suppressedN+' valid records':formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value${c.suppressedN?' cell-suppressed':''}"><span>${c.suppressedN?`N&lt;${c.suppressedN}`:formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${cellSampleHTML(t,metric,h,c,data)}</button></td>`;
       }).join('')}</tr>`;
     }
     body+='</tbody>';
@@ -1115,9 +1183,10 @@ let filterPickerOpen=false;
 // Round the presentation only: the draft keeps source extrema and typed values at full precision.
 function filterNumber(value,localized=false){if(blank(value))return '';const n=Number(value);return finite(n)?localized?n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}):n.toFixed(1):'—';}
 function filterTable(){return tableById(filterTarget);}
-function filterFields(phase){return catalogue().filter(f=>!phase||(phase==='measures')===!!(f.defined&&f.type==='number'));}
+function filterFields(phase){const base=catalogue().filter(f=>!phase||(phase==='measures')===!!(f.defined&&f.type==='number'));return !phase||phase==='measures'?[...base,MIN_N_FIELD]:base;}
 function filterDataset(){return recordPool(filterTable());}
 function filterSourceNote(field){
+  if(field===MIN_N_FIELD.id)return '';
   const required=fieldMap.has(field)?[fieldMap.get(field).period]:field.startsWith('m:')?(['delta','pct'].includes(field.split(':')[2])?['b','e']:[field.split(':')[2]]):definitionSources(state.definitions.find(d=>d.id===field)||{});
   const missing=required.filter(id=>!sourceSettings(filterTable()).ids.includes(id));
   return missing.length?`<p class="help filter-source-note">To use values from ${esc(missing.map(sourceName).join(' and '))}, include ${missing.length===1?'that data source':'those data sources'} in Edit table.</p>`:'';
@@ -1130,10 +1199,11 @@ function filterRangeStats(field){
   const values=filterDataset().map(r=>value(r,field)).filter(finite);
   return{n:values.length,min:values.length?Math.min(...values):null,max:values.length?Math.max(...values):null,mean:values.length?values.reduce((a,b)=>a+b,0)/values.length:null,median:median(values)};
 }
-function openFilters(id){filterTarget=id;filterDraft=clone(tableById(id).filters);filterPickerOpen=false;$('#filter-target').textContent=tableById(id).title;$('#filter-error').textContent='';$('#filter-preview').setAttribute('role','status');renderFilters();$('#filter-dialog').showModal();$('[data-action="toggle-filter-picker"]').focus();}
+function openFilters(id){filterCollapsed.clear();filterTarget=id;filterDraft=clone(tableById(id).filters);filterPickerOpen=false;$('#filter-target').textContent=tableById(id).title;$('#filter-error').textContent='';$('#filter-preview').setAttribute('role','status');renderFilters();$('#filter-dialog').showModal();$('[data-action="toggle-filter-picker"]').focus();}
 function filterNode(path){return path.reduce((o,k)=>o[k],filterDraft);}
 function condition(phase,field){
   const f=fieldInfo(field)||filterFields(phase)[0];if(!f)throw Error('No fields are available in this section.');
+  if(f.virtual)return{kind:'condition',id:crypto.randomUUID(),field:f.id,op:'gte',values:[],value:'5',high:'',refs:[]};
   const c={kind:'condition',id:crypto.randomUUID(),field:f.id,op:f.type==='number'?'range':'in',values:[],value:'',high:'',refs:[]};
   if(f.type==='number'){const stats=filterRangeStats(f.id);c.value=stats.min===null?'':String(stats.min);c.high=stats.max===null?'':String(stats.max);}
   else{const choices=filterChoices(f.id);c.values=choices.values;c.includeBlank=choices.hasBlank;}
@@ -1162,14 +1232,60 @@ function filterRangeHTML(c,f,attr){
 }
 function filterAnswersHTML(c,attr){
   const choices=filterChoices(c.field),stale=(c.values||[]).filter(v=>!choices.values.includes(String(v))).map(String),values=[...choices.values,...stale];
-  return `<div class="filter-answer-actions"><button class="text-button" data-action="filter-select-all" data-path="${attr}">Select all</button><button class="text-button" data-action="filter-select-none" data-path="${attr}">Unselect all</button></div><div class="answer-list" role="group" aria-label="Answers">${values.map(v=>`<label><input type="checkbox" data-filter-path="${attr}" data-answer="${esc(v)}"${checked((c.values||[]).map(String).includes(v))}><span>${esc(v)}${stale.includes(v)?'<small>Not in the selected data sources</small>':''}</span></label>`).join('')}${choices.hasBlank||c.includeBlank?`<label><input type="checkbox" data-filter-path="${attr}" data-prop="includeBlank"${checked(c.includeBlank)}><span>Blank</span></label>`:''}${!values.length&&!choices.hasBlank?'<p class="help">No values in the selected data sources.</p>':''}</div>`;
+  return `<div class="filter-answer-actions"><span class="answer-count">${(c.values||[]).length} of ${choices.values.length} selected</span><span class="answer-bulk"><button class="text-button" data-action="filter-select-all" data-path="${attr}">Select all</button><button class="text-button" data-action="filter-select-none" data-path="${attr}">Unselect all</button></span></div><div class="answer-list" role="group" aria-label="Answers">${values.map(v=>`<label><input type="checkbox" data-filter-path="${attr}" data-answer="${esc(v)}"${checked((c.values||[]).map(String).includes(v))}><span>${esc(v)}${stale.includes(v)?'<small>Not in the selected data sources</small>':''}</span></label>`).join('')}${choices.hasBlank||c.includeBlank?`<label><input type="checkbox" data-filter-path="${attr}" data-prop="includeBlank"${checked(c.includeBlank)}><span>Blank</span></label>`:''}${!values.length&&!choices.hasBlank?'<p class="help">No values in the selected data sources.</p>':''}</div>`;
+}
+const filterOperatorLabels={range:'Inclusive range',eqField:'Same answer as another field',eq:'Equals',neq:'Does not equal',lt:'Less than',lte:'At most',gt:'Greater than',gte:'At least',in:'Keep only the selected answers',notin:'Remove the selected answers',contains:'Contains',notcontains:'Does not contain',belowMedian:'Below a percentage of the median',missing:'Is blank',present:'Is not blank'};
+// Cards the user collapsed, keyed by condition id. Cleared whenever the drawer opens.
+const filterCollapsed=new Set();
+// Fields that describe data cleaning rather than the farmers, so they sit last in the picker.
+const filterAdminField=f=>/^(match_|outlier_|review_|farmer_uid$|name$)|_uid$/i.test(String(f.header||f.label||''));
+const filterSuggestedNames=['crop','region','wareda','project','variety','gender','sex','irrigation'];
+function filterSuggestedFields(){
+  const used=new Set(),out=[];
+  for(const want of filterSuggestedNames){
+    const f=filterFields('source').find(x=>x.type!=='number'&&!filterAdminField(x)&&!used.has(x.id)&&plainFieldLabel(x).toLowerCase().startsWith(want));
+    if(f&&!out.some(o=>plainFieldLabel(o)===plainFieldLabel(f)&&o.sourceLabel===f.sourceLabel)){used.add(f.id);out.push(f);}
+  }
+  return out.slice(0,6);
+}
+function filterSummary(c,f){
+  const unit=f.unit?' '+f.unit:'';
+  if(f.virtual)return blank(c.value)?'Enter a number':`Hiding cells with fewer than ${c.value} valid records`;
+  if(['in','notin'].includes(c.op)){
+    const total=filterChoices(c.field).values.length,n=(c.values||[]).length;
+    if(c.op==='in')return n===0?'No answers selected':n>=total?'All answers kept':`Keeping ${n} of ${total} answers`;
+    return n===0?'Nothing removed':`Removing ${n} of ${total} answers`;
+  }
+  if(c.op==='eqField')return c.otherField&&fieldInfo(c.otherField)?'Same answer as '+fieldOptionLabel(fieldInfo(c.otherField)):'Choose a field to compare with';
+  if(c.op==='range')return blank(c.value)&&blank(c.high)?'Any value':`${filterNumber(c.value,true)} to ${filterNumber(c.high,true)}${unit}`;
+  if(c.op==='missing')return 'Blank answers only';
+  if(c.op==='present')return 'Answers that are not blank';
+  const label=filterOperatorLabels[c.op]||c.op;
+  return blank(c.value)?label:`${label} ${c.value}${unit}`;
+}
+function refreshFilterCard(node){
+  const card=$(`.filter-condition[data-cid="${node.id}"]`),f=fieldInfo(node.field);
+  if(!card||!f)return;
+  const summary=$('.condition-summary',card);if(summary)summary.textContent=filterSummary(node,f);
+  const count=$('.answer-count',card);if(count)count.textContent=`${(node.values||[]).length} of ${filterChoices(node.field).values.length} selected`;
+}
+function toggleFilterCard(button){
+  const id=button.dataset.cid,body=$(`#cond-${id}`),open=body.hidden;
+  body.hidden=!open;button.setAttribute('aria-expanded',String(open));
+  if(open)filterCollapsed.delete(id);else filterCollapsed.add(id);
+  button.closest('.filter-condition').classList.toggle('collapsed',!open);
+}
+function filterSuggestionsHTML(){
+  const chips=filterSuggestedFields().map(f=>`<button type="button" class="suggest-chip" data-action="add-search-field" data-field="${esc(f.id)}">${esc(plainFieldLabel(f))}${f.sourceLabel?`<small>${esc(f.sourceLabel)}</small>`:''}</button>`).join('')+`<button type="button" class="suggest-chip" data-action="add-search-field" data-field="${MIN_N_FIELD.id}">N count<small>minimum records per cell</small></button>`;
+  return `<div class="filter-empty"><p>Narrow this table to the records you care about.</p>${chips?`<div class="suggest-row" role="group" aria-label="Suggested filters">${chips}</div>`:''}<p class="help">Or choose Add filter to search every field.</p></div>`;
 }
 function renderCondition(c,path,phase){
   const f=fieldInfo(c.field),attr=esc(JSON.stringify(path));
   const defaultOp=f.type==='number'?'range':'in';
-  const operatorLabel={range:'Inclusive range',eqField:'Same answer as another field',eq:'Equals',neq:'Does not equal',lt:'Less than',lte:'At most',gt:'Greater than',gte:'At least',in:'Keep only the selected answers',notin:'Remove the selected answers',contains:'Contains',notcontains:'Does not contain',belowMedian:'Below a percentage of the median',missing:'Is blank',present:'Is not blank'}[c.op]||c.op;
+  const operatorLabel=filterOperatorLabels[c.op]||c.op;
   let input='';
-  if(['in','notin'].includes(c.op))input=filterAnswersHTML(c,attr);
+  if(f.virtual)input=`<label class="field min-n-field"><span>Hide cells with fewer than</span><span class="min-n-input"><input type="number" min="1" step="1" inputmode="numeric" aria-label="Minimum valid records per cell" value="${esc(c.value)}" data-filter-path="${attr}" data-prop="value"><em>valid records</em></span></label><p class="help">Small groups can mislead. Cells below this number show N&lt;${esc(c.value||'5')} instead of a value, and are left out of charts and CSV values. Totals follow the same rule.</p>`;
+  else if(['in','notin'].includes(c.op))input=filterAnswersHTML(c,attr);
   else if(c.op==='eqField')input=`<label class="field"><span>Compare with</span><select aria-label="Comparison field" data-filter-path="${attr}" data-prop="otherField"><option value="">Choose a field</option>${optionsHTML(filterFields('source').filter(x=>x.type!=='number'&&x.id!==c.field),c.otherField)}</select></label><p class="help">Compare whole answers on the same linked record, ignoring case and outer spaces. Blank answers never match. Mixed crops only match an identical whole answer.</p>${c.otherField?filterSourceNote(c.otherField):''}`;
   else if(f.type==='number'&&c.op==='range')input=filterRangeHTML(c,f,attr);
   else if(!['missing','present'].includes(c.op))input=`<div class="range-inputs"><input type="${c.op==='belowMedian'||f.type==='number'?'number':f.type==='date'?'date':'text'}" step="any" aria-label="${c.op==='belowMedian'?'Percentage of median':'Filter value'}" placeholder="${c.op==='belowMedian'?'Enter a percentage':'Value'}" value="${esc(c.op==='belowMedian'||f.type==='number'?filterNumber(c.value):c.value)}" data-filter-path="${attr}" data-prop="value">${c.op==='range'?`<input type="${f.type==='date'?'date':'number'}" step="any" aria-label="Range upper bound" placeholder="To" value="${esc(f.type==='date'?c.high:filterNumber(c.high))}" data-filter-path="${attr}" data-prop="high">`:''}</div>`;
@@ -1177,22 +1293,30 @@ function renderCondition(c,path,phase){
     const refs=filterFields().filter(x=>x.type!=='number');for(const id of c.refs||[]){const ref=fieldInfo(id);if(ref&&!refs.some(x=>x.id===id))refs.push(ref);}
     input+=`<p class="help">Reference median after category filters, before measurement thresholds. Blank values cannot qualify.</p><div class="reference-groups">${[0,1,2].map(i=>`<label>Reference group ${i+1}<select aria-label="Reference group ${i+1}" data-filter-path="${attr}" data-ref="${i}">${optionsHTML(refs,c.refs[i]||'',true)}</select></label>`).join('')}</div><div class="benchmark-slot" data-benchmark="${c.id}"></div>`;
   }
-  return `<div class="filter-condition"><div class="condition-head"><select aria-label="Filter field" data-filter-path="${attr}" data-prop="field">${filterFieldOptions(phase,c.field)}</select><button class="delete-condition" data-action="delete-filter-node" data-path="${attr}" aria-label="Remove condition">×</button></div>${filterSourceNote(c.field)}${phase==='source'&&f.type!=='number'?`<label class="field"><span>Match answers</span><select aria-label="Match answers" data-filter-path="${attr}" data-prop="op"><option value="in"${selected(c.op,'in')}>Keep only the selected answers</option><option value="notin"${selected(c.op,'notin')}>Remove the selected answers</option><option value="eqField"${selected(c.op,'eqField')}>Same answer as another field</option>${!['in','notin','eqField'].includes(c.op)?`<option value="${esc(c.op)}" selected>${esc(operatorLabel)}</option>`:''}</select></label>`:''}${c.op!==defaultOp?`<p class="help filter-operator-note">${esc(operatorLabel)}</p>`:''}${input}</div>`;
+  const open=!filterCollapsed.has(c.id),sourceMode=phase==='source'&&f.type!=='number',standard=['in','notin','eqField'].includes(c.op);
+  const modeControl=sourceMode?(standard?`<fieldset class="filter-mode"><legend>Match answers</legend>${[['in','Keep selected'],['notin','Remove selected'],['eqField','Same as another field']].map(([v,l])=>`<label><input type="radio" name="mode-${esc(c.id)}" value="${v}" data-filter-path="${attr}" data-prop="op"${checked(c.op===v)}><span>${l}</span></label>`).join('')}</fieldset>`:`<label class="field"><span>Match answers</span><select aria-label="Match answers" data-filter-path="${attr}" data-prop="op"><option value="in">${filterOperatorLabels.in}</option><option value="notin">${filterOperatorLabels.notin}</option><option value="eqField">${filterOperatorLabels.eqField}</option><option value="${esc(c.op)}" selected>${esc(operatorLabel)}</option></select></label>`):'';
+  return `<div class="filter-condition${open?'':' collapsed'}" data-cid="${esc(c.id)}"><div class="condition-head"><button type="button" class="condition-toggle" data-action="toggle-filter-card" data-cid="${esc(c.id)}" aria-expanded="${open}" aria-controls="cond-${esc(c.id)}"><span class="condition-chevron" aria-hidden="true"></span><span class="condition-title">${esc(plainFieldLabel(f))}${f.sourceLabel?`<small>${esc(f.sourceLabel)}</small>`:''}</span><span class="condition-summary">${esc(filterSummary(c,f))}</span></button><button type="button" class="delete-condition" data-action="delete-filter-node" data-path="${attr}" aria-label="Remove ${esc(fieldOptionLabel(f))} filter">Remove</button></div><div class="condition-body" id="cond-${esc(c.id)}"${open?'':' hidden'}><label class="field condition-field"><span>Filter on</span><select aria-label="Filter field" data-filter-path="${attr}" data-prop="field">${filterFieldOptions(phase,c.field)}</select></label>${filterSourceNote(c.field)}${modeControl}${c.op!==defaultOp&&!(sourceMode&&standard)&&!f.virtual?`<p class="help filter-operator-note">${esc(operatorLabel)}</p>`:''}${input}</div></div>`;
 }
 function renderFilters(){
   const filters=['source','measures'].map(phase=>{const node=filterDraft[phase];return node.mode!=='all'||node.not?renderFilterGroup(node,[phase],phase):renderFilterChildren(node,[phase],phase);}).join('');
-  $('#filter-body').innerHTML=`<button class="add-filter-button" data-action="toggle-filter-picker" aria-expanded="${filterPickerOpen}" aria-controls="filter-picker">Add filter<span aria-hidden="true">${filterPickerOpen?'−':'+'}</span></button><div id="filter-picker" class="filter-picker"${filterPickerOpen?'':' hidden'}><div class="filter-combobox"><label for="field-search">Choose filter</label><div class="filter-combobox-input"><input id="field-search" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="field-results" placeholder="Search categories and measurements"><span aria-hidden="true">⌄</span></div><div id="field-results" class="field-results" role="listbox" aria-label="Available filters" hidden></div><p id="filter-search-status" class="sr" role="status"></p></div></div><section class="filter-list" aria-label="Filters">${filters||'<p class="filter-empty">Add a filter to choose which records appear in this table.</p>'}</section>`;
+  $('#filter-body').innerHTML=`<div class="filter-result" id="filter-result" aria-hidden="true"></div><button class="add-filter-button" data-action="toggle-filter-picker" aria-expanded="${filterPickerOpen}" aria-controls="filter-picker">Add filter<span aria-hidden="true">${filterPickerOpen?'−':'+'}</span></button><div id="filter-picker" class="filter-picker"${filterPickerOpen?'':' hidden'}><div class="filter-combobox"><label for="field-search">Choose filter</label><div class="filter-combobox-input"><input id="field-search" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="field-results" placeholder="Search categories and measurements"><span aria-hidden="true">⌄</span></div><div id="field-results" class="field-results" role="listbox" aria-label="Available filters" hidden></div><p id="filter-search-status" class="sr" role="status"></p></div></div><section class="filter-list" aria-label="Filters">${filters||filterSuggestionsHTML()}</section>`;
   if(filterPickerOpen)searchFields();updateFilterPreview();
 }
+function renderFilterResult(included,total,pct){
+  const box=$('#filter-result');if(!box)return;
+  box.classList.toggle('empty-result',included===0);
+  box.innerHTML=included===0?`<strong>No records match</strong><span>Loosen a filter to see results.</span>`:`<strong>${fmt(included,0)}</strong><span>of ${fmt(total,0)} records${included<total?`, ${fmt(pct)}%`:''}</span><div class="filter-meter"><i style="width:${Math.max(2,pct)}%"></i></div>`;
+}
 function updateFilterPreview(){
-  try{validateFilters(filterDraft);const result=filterRecords({...tableById(filterTarget),filters:filterDraft});$('[data-action="apply-filters"]').disabled=false;$('#filter-preview').textContent=`${result.included.length} of ${result.all.length} records match (${result.all.length?fmt(result.included.length/result.all.length*100):'0'}%)`;$('#filter-error').textContent='';
+  try{validateFilters(filterDraft);const result=filterRecords({...tableById(filterTarget),filters:filterDraft});$('[data-action="apply-filters"]').disabled=false;const pct=result.all.length?result.included.length/result.all.length*100:0;$('#filter-preview').textContent=`${result.included.length} of ${result.all.length} records match (${result.all.length?fmt(pct):'0'}%)`;$('#filter-error').textContent='';renderFilterResult(result.included.length,result.all.length,pct);
     for(const c of leaves(filterDraft.measures).filter(x=>x.op==='belowMedian')){const el=$(`[data-benchmark="${c.id}"]`);if(el)el.innerHTML=`<details class="benchmark-details"><summary>Reference medians & cutoffs</summary><table><thead><tr><th>Group</th><th>N</th><th>Median</th><th>Cutoff</th></tr></thead><tbody>${[...result.benchmarks.get(c.id)].map(([k,v])=>`<tr><td>${esc(pathLabel(JSON.parse(k)))}</td><td>${v.n}</td><td>${filterNumber(v.median,true)}</td><td>${filterNumber(v.cutoff,true)}</td></tr>`).join('')}</tbody></table></details>`;}
-  }catch(e){$('[data-action="apply-filters"]').disabled=true;$('#filter-preview').textContent=e.message;$$('.benchmark-slot').forEach(el=>el.innerHTML='');}
+  }catch(e){$('[data-action="apply-filters"]').disabled=true;$('#filter-preview').textContent=e.message;const box=$('#filter-result');if(box)box.innerHTML='';$$('.benchmark-slot').forEach(el=>el.innerHTML='');}
 }
 function searchFields(){
   const input=$('#field-search'),query=input.value.trim().toLowerCase(),results=$('#field-results');
-  const fields=filterFields().filter(f=>[f.label,f.header,f.type,f.unit,f.sourceLabel].filter(Boolean).join(' ').toLowerCase().includes(query));
-  results.innerHTML=fields.map((f,i)=>`<button id="filter-option-${i}" role="option" aria-selected="false" tabindex="-1" data-action="add-search-field" data-field="${esc(f.id)}"><span>${esc(fieldOptionLabel(f))}</span><small>${esc(f.unit||f.type)}</small></button>`).join('');
+  const suggested=new Set([...filterSuggestedFields().map(f=>f.id),MIN_N_FIELD.id]),rank=f=>suggested.has(f.id)?0:filterAdminField(f)?2:1;
+  const fields=filterFields().filter(f=>[f.label,f.header,f.type,f.unit,f.sourceLabel].filter(Boolean).join(' ').toLowerCase().includes(query)).map((f,i)=>({f,i})).sort((a,b)=>rank(a.f)-rank(b.f)||a.i-b.i).map(x=>x.f);
+  results.innerHTML=fields.map((f,i)=>`<button id="filter-option-${i}" role="option" aria-selected="false" tabindex="-1" data-action="add-search-field" data-field="${esc(f.id)}"><span>${esc(fieldOptionLabel(f))}</span><small>${esc(filterAdminField(f)?'data quality':f.unit||f.type)}</small></button>`).join('');
   results.hidden=false;input.setAttribute('aria-expanded','true');input.removeAttribute('aria-activedescendant');
   const status=$('#filter-search-status');status.textContent=fields.length?`${fields.length} filters available`:'No matching filters. Try another name or data source.';status.className=fields.length?'sr':'filter-no-results';
 }
@@ -1220,32 +1344,35 @@ function syncFilterRange(el,node){
 }
 function filterChange(el){
   const path=JSON.parse(el.dataset.filterPath),node=filterNode(path),prop=el.dataset.prop;
-  if(el.dataset.answer!==undefined){node.values=node.values||[];if(el.checked)node.values=[...new Set([...node.values,el.dataset.answer])];else node.values=node.values.filter(v=>String(v)!==el.dataset.answer);}
+  if(el.dataset.answer!==undefined){node.values=node.values||[];if(el.checked)node.values=[...new Set([...node.values,el.dataset.answer])];else node.values=node.values.filter(v=>String(v)!==el.dataset.answer);refreshFilterCard(node);}
   else if(el.dataset.ref!==undefined){node.refs[Number(el.dataset.ref)]=el.value;node.refs=node.refs.filter(Boolean);renderFilters();return;}
   else if(prop==='field'){Object.assign(node,condition(path[0],el.value));renderFilters();return;}
   else{
     node[prop]=el.type==='checkbox'?el.checked:el.value;
     if(el.type==='range'){if(prop==='value'&&!blank(node.high))node.value=String(Math.min(Number(node.value),Number(node.high)));if(prop==='high'&&!blank(node.value))node.high=String(Math.max(Number(node.high),Number(node.value)));}
-    if(prop==='op'){node.value='';node.high='';node.values=[];node.includeBlank=false;if(node.op==='range'&&fieldInfo(node.field).type==='number'){const stats=filterRangeStats(node.field);node.value=stats.min===null?'':String(stats.min);node.high=stats.max===null?'':String(stats.max);}else if(['in','notin'].includes(node.op)){const choices=filterChoices(node.field);node.values=choices.values;node.includeBlank=choices.hasBlank;}renderFilters();return;}
-    if(['value','high'].includes(prop))syncFilterRange(el,node);
+    if(prop==='op'){node.value='';node.high='';node.values=[];node.includeBlank=false;if(node.op==='range'&&fieldInfo(node.field).type==='number'){const stats=filterRangeStats(node.field);node.value=stats.min===null?'':String(stats.min);node.high=stats.max===null?'':String(stats.max);}else if(['in','notin'].includes(node.op)){const choices=filterChoices(node.field);node.values=choices.values;node.includeBlank=choices.hasBlank;}renderFilters();$(`.filter-condition[data-cid="${node.id}"] input[data-prop="op"]:checked`)?.focus();return;}
+    if(['value','high'].includes(prop)){syncFilterRange(el,node);refreshFilterCard(node);}
   }
   updateFilterPreview();
 }
 function filterFeedbackClick(button){
   if(button.dataset.action==='toggle-filter-picker'){filterPickerOpen=!filterPickerOpen;renderFilters();(filterPickerOpen?$('#field-search'):$('[data-action="toggle-filter-picker"]')).focus();return true;}
   if(button.dataset.action==='add-search-field'){addFilterField(button.dataset.field);return true;}
+  if(button.dataset.action==='toggle-filter-card'){toggleFilterCard(button);return true;}
   if(!['filter-select-all','filter-select-none'].includes(button.dataset.action))return false;
   const node=filterNode(JSON.parse(button.dataset.path)),choices=filterChoices(node.field),all=button.dataset.action==='filter-select-all';node.values=all?choices.values:[];node.includeBlank=all&&choices.hasBlank;renderFilters();return true;
 }
 function filterFeedbackInput(el){if(!el.dataset.filterPath||!['value','high'].includes(el.dataset.prop))return false;filterChange(el);return true;}
 function addFilterField(id){
   const f=fieldInfo(id),phase=f.defined&&f.type==='number'?'measures':'source';
-  filterDraft[phase].children.push(condition(phase,f.id));
+  const fresh=condition(phase,f.id);filterDraft[phase].children.push(fresh);
+  const all=['source','measures'].flatMap(p=>leaves(filterDraft[p]));
+  if(all.length>2)for(const c of all)if(c.id!==fresh.id)filterCollapsed.add(c.id);
   const path=JSON.stringify([phase,'children',filterDraft[phase].children.length-1]);
   filterPickerOpen=false;renderFilters();
   // The picker sits at the top of a long panel, so bring the new filter into view and mark it, otherwise it appears to vanish below the fold.
   const added=[...$$('#filter-body [data-action="delete-filter-node"]')].find(b=>b.dataset.path===path)?.closest('.filter-condition');
-  if(added){added.classList.add('just-added');added.scrollIntoView({block:'nearest'});added.querySelector('select')?.focus({preventScroll:true});}
+  if(added){added.classList.add('just-added');added.scrollIntoView({block:'nearest'});added.querySelector('.condition-body select')?.focus({preventScroll:true});}
   else $('[data-action="toggle-filter-picker"]').focus();
 }
 function filterFeedbackChange(el){
@@ -1277,7 +1404,7 @@ function builderCategoryFields(){
 
 function filterBuilderFields(){const query=(work.fieldQuery||'').trim().toLowerCase();let visible=0;$$('[data-field-label]').forEach(item=>{item.hidden=!item.dataset.fieldLabel.includes(query);if(!item.hidden)visible++;});const empty=$('#fields-empty');if(empty){empty.hidden=visible>0;
     // A search for a number (such as yield) finds nothing here by design, so say where it lives instead of showing a dead end.
-    const isNumber=query&&visible===0&&filterFields().some(f=>f.type==='number'&&(f.label+' '+(f.sourceLabel||'')).toLowerCase().includes(query));
+    const isNumber=query&&visible===0&&filterFields().some(f=>f.type==='number'&&!f.virtual&&(f.label+' '+(f.sourceLabel||'')).toLowerCase().includes(query));
     empty.textContent=isNumber?`“${work.fieldQuery.trim()}” is a number, not a group. Choose it under Measurements, then use groups such as crop or region for rows and columns.`:'No groups match your search.';}}
 function conceptHelp(kind){
   const message=kind==='categories'?'Groups split records into rows and columns. Try Crop, Region or Farmer name. Add another group to make subgroups.':'Measurements are the numbers inside the table, such as yield or income. Choose a mean, median, sum or record count.';
@@ -1688,7 +1815,7 @@ function chartHTML(t,data,config=null,preview=false){
   const lo=Math.min(0,...values),hi=Math.max(0,...values),spread=hi-lo||1,low=lo<0?lo-spread*.12:0,high=hi>0?hi+spread*.15:lo<0?0:1,range=high-low,zero=(0-low)/range*100;
   const ticks=Array.from({length:5},(_,i)=>low+range*i/4);
   const labelFor=r=>r.group.path?.length?r.group.path.map(p=>p[1]??'Missing').join(' / '):'All records';
-  return `<section class="chart${preview?' chart-preview':''}"><div class="chart-head"><h3>${esc(c.title||t.title)}</h3>${preview?'':`<div class="chart-tools"><button class="small" data-action="chart" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Configure</button><button class="small" data-action="add-chart-report" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Add to report</button><button class="small" data-action="add-chart-home" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Add to home page</button><button class="icon-button" data-action="chart-hide" data-table="${t.id}" data-chart-id="${esc(c.id||'')}" aria-label="Remove chart"><img class="icon" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiB2aWV3Qm94PSIwIDAgMTggMTgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJjbG9zZSI+CjxwYXRoIGlkPSJWZWN0b3IiIGQ9Ik0xNC4yNSA0LjgwNzVMMTMuMTkyNSAzLjc1TDkgNy45NDI1TDQuODA3NSAzLjc1TDMuNzUgNC44MDc1TDcuOTQyNSA5TDMuNzUgMTMuMTkyNUw0LjgwNzUgMTQuMjVMOSAxMC4wNTc1TDEzLjE5MjUgMTQuMjVMMTQuMjUgMTMuMTkyNUwxMC4wNTc1IDlMMTQuMjUgNC44MDc1WiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC42Ii8+CjwvZz4KPC9zdmc+Cg==" alt=""></button></div>`}</div>${preview?'':reportDestinationsHTML(t,c.id||'')}<p class="chart-axis-title">${esc(yTitle)}</p><div class="vertical-chart" role="img" aria-label="${esc(c.title||t.title)}. ${esc(series.map(chartSeriesLabel).join('; '))}"><div class="chart-y-axis">${ticks.map(v=>`<span style="bottom:${(v-low)/range*100}%">${fmt(v)}</span>`).join('')}</div><div class="chart-overflow"><div class="chart-plot" style="min-width:${Math.max(320,rows.length*Math.max(100,series.length*38))}px"><div class="chart-grid">${ticks.map(v=>`<i style="bottom:${(v-low)/range*100}%"></i>`).join('')}<i class="chart-zero" style="bottom:${zero}%"></i></div><div class="chart-categories">${rows.map(r=>`<div class="chart-category"><div class="chart-bars">${series.map((h,j)=>{const v=r.cells[h.index]?.value,height=finite(v)?Math.abs(v)/range*100:0,bottom=finite(v)&&v<0?(v-low)/range*100:zero;return `<div class="chart-bar-slot"><div class="vertical-bar${v<0?' negative':''}" style="height:${height}%;bottom:${bottom}%;background:${seriesColor(c,h,j)}" title="${esc(labelFor(r)+' · '+chartSeriesLabel(h)+': '+fmt(v)+' · '+sample(r,h))}">${c.values?`<span class="bar-value">${fmt(v)}</span>`:''}</div></div>`;}).join('')}</div><div class="chart-category-name">${esc(labelFor(r))}${c.samples!=='off'?`<div class="chart-samples">${series.map(h=>`<small title="${esc(chartSeriesLabel(h))}">${series.length>1?esc(chartSeriesLabel(h))+': ':''}${esc(sample(r,h))}</small>`).join('')}</div>`:''}</div></div>`).join('')}</div></div></div></div><p class="chart-x-title">${esc(c.xTitle)}</p><div class="chart-legend">${series.map((h,i)=>`<span><i style="background:${seriesColor(c,h,i)}"></i>${esc(chartSeriesLabel(h))}</span>`).join('')}</div>${c.samples==='percent'?'<p class="help">Percentages use all valid values in the selected source/cohort before table filters. They describe sample coverage, not income or yield change.</p>':''}${!values.length?'<p class="help">No numeric values are available for this selection.</p>':''}<table class="sr"><caption>${esc(c.title||t.title)}</caption><thead><tr><th>Category</th>${series.map(h=>`<th>${esc(chartSeriesLabel(h))}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th>${esc(labelFor(r))}</th>${series.map(h=>`<td>${fmt(r.cells[h.index]?.value)}; ${esc(sample(r,h))}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`;
+  return `<section class="chart${preview?' chart-preview':''}"><div class="chart-head"><h3>${esc(c.title||t.title)}</h3>${preview?'':`<div class="chart-tools"><button class="small" data-action="chart" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Configure</button><button class="small" data-action="add-chart-report" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Add to report</button><button class="small" data-action="add-chart-home" data-table="${t.id}" data-chart-id="${esc(c.id||'')}">Add to home page</button><button class="icon-button" data-action="chart-hide" data-table="${t.id}" data-chart-id="${esc(c.id||'')}" aria-label="Remove chart"><img class="icon" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiB2aWV3Qm94PSIwIDAgMTggMTgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJjbG9zZSI+CjxwYXRoIGlkPSJWZWN0b3IiIGQ9Ik0xNC4yNSA0LjgwNzVMMTMuMTkyNSAzLjc1TDkgNy45NDI1TDQuODA3NSAzLjc1TDMuNzUgNC44MDc1TDcuOTQyNSA5TDMuNzUgMTMuMTkyNUw0LjgwNzUgMTQuMjVMOSAxMC4wNTc1TDEzLjE5MjUgMTQuMjVMMTQuMjUgMTMuMTkyNUwxMC4wNTc1IDlMMTQuMjUgNC44MDc1WiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC42Ii8+CjwvZz4KPC9zdmc+Cg==" alt=""></button></div>`}</div>${preview?'':reportDestinationsHTML(t,c.id||'')}<p class="chart-axis-title">${esc(yTitle)}</p><div class="vertical-chart" role="img" aria-label="${esc(c.title||t.title)}. ${esc(series.map(chartSeriesLabel).join('; '))}"><div class="chart-y-axis">${ticks.map(v=>`<span style="bottom:${(v-low)/range*100}%">${fmt(v)}</span>`).join('')}</div><div class="chart-overflow"><div class="chart-plot" style="min-width:${Math.max(320,rows.length*Math.max(100,series.length*38))}px"><div class="chart-grid">${ticks.map(v=>`<i style="bottom:${(v-low)/range*100}%"></i>`).join('')}<i class="chart-zero" style="bottom:${zero}%"></i></div><div class="chart-categories">${rows.map(r=>`<div class="chart-category"><div class="chart-bars">${series.map((h,j)=>{const v=r.cells[h.index]?.value,height=finite(v)?Math.abs(v)/range*100:0,bottom=finite(v)&&v<0?(v-low)/range*100:zero;return `<div class="chart-bar-slot"><div class="vertical-bar${v<0?' negative':''}" style="height:${height}%;bottom:${bottom}%;background:${seriesColor(c,h,j)}" title="${esc(labelFor(r)+' · '+chartSeriesLabel(h)+': '+fmt(v)+' · '+sample(r,h))}">${c.values?`<span class="bar-value">${fmt(v)}</span>`:''}</div></div>`;}).join('')}</div><div class="chart-category-name">${esc(labelFor(r))}${c.samples!=='off'?`<div class="chart-samples">${series.map(h=>`<small title="${esc(chartSeriesLabel(h))}">${series.length>1?esc(chartSeriesLabel(h))+': ':''}${esc(sample(r,h))}</small>`).join('')}</div>`:''}</div></div>`).join('')}</div></div></div></div><p class="chart-x-title">${esc(c.xTitle)}</p><div class="chart-legend">${series.map((h,i)=>`<span><i style="background:${seriesColor(c,h,i)}"></i>${esc(chartSeriesLabel(h))}</span>`).join('')}</div>${c.samples==='percent'?'<p class="help">Percentages use all valid values in the selected source/cohort before table filters. They describe sample coverage, not income or yield change.</p>':''}${!values.length?'<p class="help">No numeric values are available for this selection.</p>':''}<table class="sr"><caption>${esc(c.title||t.title)}</caption><thead><tr><th>Category</th>${series.map(h=>`<th>${esc(chartSeriesLabel(h))}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th>${esc(labelFor(r))}</th>${series.map(h=>`<td>${r.cells[h.index]?.suppressedN?'N&lt;'+r.cells[h.index].suppressedN:fmt(r.cells[h.index]?.value)}; ${esc(sample(r,h))}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`;
 }
 function chartOptionsHTML(c,data){
   return `<label class="field"><span>Category order</span><select id="chart-order" data-chart-config>${[['table','Table order'],['label','Alphabetical'],['desc','Largest first'],['asc','Smallest first']].map(([id,name])=>`<option value="${id}"${selected(c.order,id)}>${name}</option>`).join('')}</select></label><label class="field"><span>Sort by series</span><select id="chart-sort-series" data-chart-config>${data.headers.filter(h=>h.stat!=='n').map(h=>`<option value="${esc(chartSeriesKey(h))}"${selected(c.sortSeries,chartSeriesKey(h))}>${esc(chartSeriesLabel(h))}</option>`).join('')}</select></label><label class="field"><span>Read ranking</span><select id="chart-rank-direction" data-chart-config><option value="ltr"${selected(c.rankDirection,'ltr')}>Left to right</option><option value="rtl"${selected(c.rankDirection,'rtl')}>Right to left</option></select></label><label class="field"><span>Sample size</span><select id="chart-samples" data-chart-config>${[['count','N (valid records)'],['percent','% of total before filters'],['off','Hide']].map(([id,name])=>`<option value="${id}"${selected(c.samples,id)}>${name}</option>`).join('')}</select></label>`;
@@ -1788,7 +1915,7 @@ function calculationNote(t){const s=sourceSettings(t);return `Numeric calculatio
 function exportCSV(t){
   const d=calculate(t),s=sourceSettings(t),rows=[['Table',t.title],['Data sources',sourceNote(t)],['Source results',s.mode],['Record selection',s.records],['Included records',d.included.length],['Eligible records',d.eligible.length],['Selected records',d.all.length],['Source filters',conditionText(t.filters.source)],['Measurement filters',conditionText(t.filters.measures)],['Data fingerprint',DATA.fingerprint],['Calculation',calculationNote(t)],['Merges',t.merges.map(m=>m.label+': '+m.paths.join(' + ')).join('; ')],['Hidden groups',JSON.stringify(t.hidden)],[]];
   rows.push(['Row group','Measurement','Unit',...d.headers.flatMap(c=>{const l=(t.columns.length?c.group.label+' · ':'')+c.label;return[l,l+' valid records',l+' selected records',l+' '+sourceName(c.from||s.changeFrom)+' valid records',l+' '+sourceName(c.to||s.changeTo)+' valid records',l+' eligible records',l+' included %'];})]);
-  d.rows.forEach(r=>rows.push([r.group.label,metricInfo(r.metric).label,metricInfo(r.metric).unit,...r.cells.flatMap(c=>[c.value,c.n,c.cohort,c.b?.n,c.e?.n,c.eligible,c.share])]));
+  d.rows.forEach(r=>rows.push([r.group.label,metricInfo(r.metric).label,metricInfo(r.metric).unit,...r.cells.flatMap(c=>[c.suppressedN?'N<'+c.suppressedN:c.value,c.n,c.cohort,c.b?.n,c.e?.n,c.eligible,c.share])]));
   download(t.title.replace(/[<>:"/\\|?*]/g,'-')+'.csv',csvText(rows),'text/csv;charset=utf-8');
 }
 function openPrint(){work={kind:'print'};modal('Print selected tables',`<p class="help">Choose tables, then use your browser’s Save as PDF option. Titles, filters, units and calculation notes are included.</p>${visibleTables().map(t=>`<label class="print-choice"><input type="checkbox" data-print-table="${t.id}" checked>${esc(t.title)}</label>`).join('')}`,'<button data-action="close-work">Cancel</button><button class="primary" data-action="print-selected">Print / save PDF</button>',true);}
