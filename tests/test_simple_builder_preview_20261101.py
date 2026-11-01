@@ -146,7 +146,9 @@ class SimpleBuilderPreviewTests(unittest.TestCase):
     def test_left_axis_search_reads_search_group(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.assertEqual(p.locator('[data-builder-axis-search]').evaluate_all('els => els.map(e => e.placeholder)'), ['Search group', 'Search group'])
+        # Round 3 replaced the per-axis searches with one search over all groups.
+        self.assertEqual(p.locator('[data-builder-axis-search]').count(), 0)
+        self.assertEqual(p.locator('#fields-search').get_attribute('placeholder'), 'Search groups')
 
     def test_add_axis_buttons_never_leave_the_builder(self):
         p = self.page

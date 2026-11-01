@@ -36,8 +36,9 @@ class QuestionFirstTests(unittest.TestCase):
             self.open_panel(name)
         p.locator('[data-builder-source="e"]').uncheck()
         p.locator('[data-builder-metric="b:Age"]').check()
-        p.locator('[data-builder-axis-search="rows"]').fill('Gender')
-        p.locator('[data-axis-results="rows"] [data-action="add-axis-field"]').first.click()
+        p.locator('#fields-search').fill('Gender')
+        p.locator('#fields-list .group-choice:visible [data-action="add-axis-field"]').first.click()
+        self.assertEqual(len(p.evaluate('work.draft.rows')), 1, 'Add puts the group in rows')
         self.assertEqual(p.locator('#work-error').inner_text(), '')
         self.assertGreater(p.locator('#builder-preview td').count(), 0)
         result = p.evaluate("""()=>{
@@ -59,9 +60,8 @@ class QuestionFirstTests(unittest.TestCase):
         self.open_panel('groups')
         self.assertEqual(p.locator('#fields-list .field-row[data-field="b:Age"]').count(), 0)
         self.assertEqual(p.locator('[data-builder-metric="b:Age"]').count(), 1)
-        p.locator('#builder-numeric-groups').check()
-        self.assertEqual(p.locator('#fields-list .field-row[data-field="b:Age"]').count(), 1)
-        p.locator('#builder-numeric-groups').uncheck()
+        # Numbers are measurements; the "group by individual numeric values" opt-in is gone.
+        self.assertEqual(p.locator('#builder-numeric-groups').count(), 0)
         p.locator('#fields-search').fill('region')
         p.locator('[data-builder-metric="yield"]').check()
         visible = p.locator('#fields-list .group-choice:visible').all_text_contents()
@@ -77,15 +77,18 @@ class QuestionFirstTests(unittest.TestCase):
         self.open_panel('measurements')
         self.open_panel('groups')
         p.locator('[data-builder-metric="yield"]').check()
-        self.drag('#fields-list .field-row[data-field="q:crop"]', '[data-axis-card="rows"]')
-        self.drag('[data-axis="rows"] .axis-drag-handle', '[data-axis-card="columns"]')
+        # The left pane has no row/column boxes any more: groups drop on the preview headers, and the
+        # "In your table" item's handle drags it between axes there too.
+        self.drag('#fields-list .field-row[data-field="q:crop"]', '#builder-preview th.row-axis-header')
+        self.assertEqual(p.evaluate('work.draft.rows'), ['q:crop'])
+        self.drag('.table-group[data-axis="rows"] .axis-drag-handle', '#builder-preview thead th.source-heading')
         self.assertEqual(p.evaluate('work.draft.rows'), [])
         self.assertEqual(p.evaluate('work.draft.columns'), ['q:crop'])
-        self.drag('#builder-preview th[data-preview-axis="columns"]', '[data-axis-card="rows"]')
+        self.drag('#builder-preview th[data-preview-axis="columns"]', '#builder-preview th.row-axis-header')
         self.assertEqual(p.evaluate('work.draft.rows'), ['q:crop'])
         self.drag('#builder-preview th[data-preview-axis="rows"]', '#builder-preview thead th.source-heading')
         self.assertEqual(p.evaluate('work.draft.columns'), ['q:crop'])
-        p.locator('[data-axis-card="columns"] [data-action="transfer-level"]').focus()
+        p.locator('.table-group[data-axis="columns"] [data-to="rows"]').focus()
         p.keyboard.press('Enter')
         self.assertEqual(p.evaluate('work.draft.rows'), ['q:crop'])
         # Reject a group in the values area without mutating either axis.
@@ -95,7 +98,7 @@ class QuestionFirstTests(unittest.TestCase):
         # Reject a fourth level without removing it from its original axis.
         p.evaluate("work.draft.columns=['b:Gender','b:Region','b:Woreda'];renderBuilder()")
         snapshot = p.evaluate('JSON.stringify(work.draft)')
-        self.drag('[data-axis="rows"] .axis-drag-handle', '[data-axis-card="columns"]')
+        self.drag('.table-group[data-axis="rows"] .axis-drag-handle', '.table-group[data-axis="columns"]')
         self.assertEqual(p.evaluate('JSON.stringify(work.draft)'), snapshot)
         self.assertIn('three group levels', p.locator('#toast').inner_text())
 

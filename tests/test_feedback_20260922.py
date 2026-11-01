@@ -179,9 +179,11 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.locator('[data-builder-source="b"]').check()
         p.locator('#fields-list .field-row[data-field="q:gender"]').click()
         p.locator('[data-builder-source="b"]').uncheck()
-        self.assertEqual(p.get_by_label("Row level 1").input_value(), "q:gender")
+        # The group stays in the table, marked, until its source is selected again or it is removed.
+        self.assertEqual(p.evaluate("work.draft.rows"), ["q:gender"])
+        self.assertIn("Select its source", p.locator('.table-group[data-field="q:gender"]').inner_text())
         self.assertIn("Select Baseline", p.locator('#work-error').inner_text())
-        p.get_by_label("Remove rows level 1").click()
+        p.get_by_label("Remove Gender from the table").click()
         self.assertEqual(p.locator('#work-error').inner_text(), "")
 
     def test_drag_success_and_rejection(self):
