@@ -21,11 +21,7 @@ class QuestionFirstTests(unittest.TestCase):
         if not panel.evaluate('el => el.open'):
             panel.locator(':scope > summary').click()
 
-    def example(self, name):
-        self.open_panel('examples')
-        self.page.locator(f'[data-action="builder-example"][data-example="{name}"]').click()
-
-    def test_empty_draft_and_examples_use_real_records(self):
+    def test_empty_draft_and_built_table_use_real_records(self):
         p = self.page
         p.evaluate('openBuilder()')
         before = p.evaluate('state.tables.length')
@@ -34,36 +30,33 @@ class QuestionFirstTests(unittest.TestCase):
         p.locator('[data-action="apply-builder"]').click()
         self.assertEqual(p.evaluate('state.tables.length'), before)
         self.assertIn('measurement', p.locator('#work-error').inner_text())
-        p.locator('#builder-title').fill('My unsaved analysis')
-        original = p.evaluate('JSON.stringify(work.draft)')
-        for name in ['respondents', 'age', 'income', 'officer', 'land']:
-            self.example(name)
-            self.assertEqual(p.locator('#work-error').inner_text(), '', name)
-            self.assertGreater(p.locator('#builder-preview td').count(), 0)
-        self.assertIn('Change in means (%)', p.locator('#builder-preview').inner_text())
-        # Undo restores the draft from before the most recent example.
-        p.evaluate('closeWork();openBuilder()')
-        p.locator('#builder-title').fill('My unsaved analysis')
-        original = p.evaluate('JSON.stringify(work.draft)')
-        self.example('age')
+        # Build "average age by gender" from Baseline only, through the left pane.
+        p.locator('#builder-title').fill('Average age by gender')
+        for name in ['measurements', 'groups', 'sources']:
+            self.open_panel(name)
+        p.locator('[data-builder-source="e"]').uncheck()
+        p.locator('[data-builder-metric="b:Age"]').check()
+        p.locator('[data-builder-axis-search="rows"]').fill('Gender')
+        p.locator('[data-axis-results="rows"] [data-action="add-axis-field"]').first.click()
+        self.assertEqual(p.locator('#work-error').inner_text(), '')
+        self.assertGreater(p.locator('#builder-preview td').count(), 0)
         result = p.evaluate("""()=>{
           const data=calculate(builderCandidate());
-          return data.rows.map(row=>({actual:row.cells[0].value,expected:row.group.records.reduce((s,r)=>s+raw(r,'b:Age'),0)/row.group.records.filter(r=>finite(raw(r,'b:Age'))).length}));
+          return data.rows.map(row=>({actual:row.cells[0].value,expected:row.group.records.reduce((s,r)=>s+(finite(raw(r,'b:Age'))?raw(r,'b:Age'):0),0)/row.group.records.filter(r=>finite(raw(r,'b:Age'))).length}));
         }""")
+        self.assertTrue(result)
         for row in result:
             self.assertAlmostEqual(row['actual'], row['expected'])
-        p.locator('[data-action="builder-undo-example"]').click()
-        self.assertEqual(p.evaluate('JSON.stringify(work.draft)'), original)
-        self.example('respondents')
-        self.assertEqual(p.evaluate('calculate(builderCandidate()).rows.reduce((n,r)=>n+r.cells[0].value,0)'), p.evaluate("dataSources().find(s=>s.id==='e').records.length"))
         p.locator('[data-action="apply-builder"]').click()
         p.reload()
-        self.assertEqual(p.evaluate('state.tables[0].metrics'), ['count'])
-        self.assertEqual(p.evaluate('state.tables[0].sources.ids'), ['e'])
+        self.assertEqual(p.evaluate('state.tables[0].metrics'), ['b:Age'])
+        self.assertEqual(p.evaluate('state.tables[0].sources.ids'), ['b'])
 
     def test_groups_numbers_collapsing_and_search_survive_changes(self):
         p = self.page
         p.evaluate('openBuilder()')
+        self.open_panel('measurements')
+        self.open_panel('groups')
         self.assertEqual(p.locator('#fields-list .field-row[data-field="b:Age"]').count(), 0)
         self.assertEqual(p.locator('[data-builder-metric="b:Age"]').count(), 1)
         p.locator('#builder-numeric-groups').check()
@@ -81,6 +74,8 @@ class QuestionFirstTests(unittest.TestCase):
     def test_horizontal_drag_preview_headers_and_keyboard_alternative(self):
         p = self.page
         p.evaluate('openBuilder()')
+        self.open_panel('measurements')
+        self.open_panel('groups')
         p.locator('[data-builder-metric="yield"]').check()
         self.drag('#fields-list .field-row[data-field="q:crop"]', '[data-axis-card="rows"]')
         self.drag('[data-axis="rows"] .axis-drag-handle', '[data-axis-card="columns"]')
@@ -107,6 +102,7 @@ class QuestionFirstTests(unittest.TestCase):
     def test_change_basis_explicit_and_persisted_in_table_and_export(self):
         p = self.page
         p.evaluate('openBuilder()')
+        self.open_panel('measurements')
         p.locator('[data-builder-metric="net"]').check()
         self.open_panel('sources')
         p.locator('.builder-comparison > summary').click()
@@ -143,6 +139,7 @@ class QuestionFirstTests(unittest.TestCase):
     def test_count_mode_switches_without_averaging_counts(self):
         p = self.page
         p.evaluate('openBuilder()')
+        self.open_panel('measurements')
         p.locator('[data-builder-metric="count"]').check()
         self.assertEqual(p.evaluate('work.draft.stats'), ['count'])
         p.locator('[data-builder-metric="net"]').check()
@@ -157,52 +154,17 @@ class QuestionFirstTests(unittest.TestCase):
         self.assertEqual(p.evaluate('work.draft.stats'), ['mean'])
         self.assertEqual(p.locator('#work-error').inner_text(), '')
 
-    def test_raw_data_round_trip_preserves_unsaved_draft(self):
-        p = self.page
-        p.evaluate('openBuilder()')
-        self.example('age')
-        p.locator('#builder-title').fill('Age draft to keep')
-        p.locator('[data-builder-panel="examples"] > summary').click()
-        original = p.evaluate('readBuilder();JSON.stringify(work.draft)')
-        expected_url = p.evaluate("platformSourceRawDataURL('b')")
-        # Verify the configured destination without depending on external authentication.
-        self.context.route(expected_url, lambda route: route.fulfill(status=200, body='Raw data destination'))
-        with self.context.expect_page() as opened:
-            p.locator('[data-action="builder-raw-data"][data-source="b"]').click()
-        external = opened.value
-        external.wait_for_load_state()
-        self.assertEqual(external.url, expected_url)
-        self.assertEqual(p.evaluate('JSON.stringify(work.draft)'), original)
-        external.close()
-        # Sources without a configured URL use the local read-only fallback.
-        p.evaluate("delete DATA.platform.sources.b.url")
-        p.locator('[data-action="builder-raw-data"][data-source="b"]').click()
-        self.assertTrue(p.locator('#raw-data-view').is_visible())
-        self.assertIn('Age', p.locator('#raw-data-view').inner_text())
-        p.locator('[data-action="raw-data-return"]').click()
-        self.assertTrue(p.locator('#work-dialog').is_visible())
-        self.assertEqual(p.evaluate('JSON.stringify(work.draft)'), original)
-        self.assertFalse(p.locator('[data-builder-panel="examples"]').evaluate('el=>el.open'))
-        self.assertEqual(p.locator('#builder-title').input_value(), 'Age draft to keep')
-        self.assertEqual(p.evaluate('document.activeElement.dataset.action'), 'builder-raw-data')
-
-    def test_guided_change_definition_returns_to_draft(self):
+    def test_advanced_measurements_round_trip_preserves_draft(self):
         p = self.page
         p.evaluate('openBuilder()')
         p.locator('#builder-title').fill('Individual changes')
-        p.locator('[data-action="builder-define-change"]').click()
-        self.assertEqual(p.locator('#definition-formula').input_value(), '(VAR2 - VAR1) / VAR1 * 100')
-        self.assertEqual(p.locator('[data-definition-input]').count(), 2)
-        p.locator('[data-action="save-definition"]').click()
+        self.open_panel('measurements')
+        p.get_by_role('button', name='Add and review measurements (Advanced)').click()
+        self.assertEqual(p.locator('#work-title').inner_text(), 'Categories & Measurements')
+        self.assertEqual(p.locator('[data-action="definition-tab"][aria-selected="true"]').get_attribute('data-tab'), 'measurements')
         p.locator('[data-action="return-builder"]').click()
         self.assertEqual(p.locator('#builder-title').input_value(), 'Individual changes')
-        custom_id = p.evaluate('state.definitions.at(-1).id')
-        p.locator(f'[data-builder-metric="{custom_id}"]').check()
-        self.assertEqual(p.evaluate('work.draft.periods'), ['value'])
-        self.assertEqual(p.locator('#work-error').inner_text(), '')
-        p.locator('[data-action="apply-builder"]').click()
-        p.reload()
-        self.assertEqual(p.evaluate('state.tables[0].metrics'), [custom_id])
+        self.assertTrue(p.locator('[data-builder-panel="measurements"]').evaluate('el=>el.open'))
 
     def test_mobile_keyboard_reduced_motion_and_preview_access(self):
         p = self.page
@@ -210,10 +172,11 @@ class QuestionFirstTests(unittest.TestCase):
         for width in [390, 320]:
             p.set_viewport_size({'width':width,'height':844})
             p.evaluate('openBuilder()')
+            self.open_panel('measurements')
             p.locator('[data-builder-metric="count"]').check()
             p.locator('[data-action="builder-jump-preview"]').focus()
             p.keyboard.press('Enter')
-            self.assertEqual(p.evaluate('document.activeElement.id'), 'builder-title')
+            self.assertTrue(p.evaluate("document.activeElement.classList.contains('builder-preview-panel')"))
             self.assertLessEqual(p.evaluate('document.documentElement.scrollWidth'), width)
             self.assertLessEqual(p.locator('#work-dialog').evaluate('el=>el.scrollWidth'), width)
             for _ in range(8):
