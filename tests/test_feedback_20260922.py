@@ -169,16 +169,17 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_source_scope_names_and_retained_unavailable_selection(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:name"]').count(), 1)
+        # Gender is asked only at Baseline, so it leaves the groups list when Baseline is unselected.
+        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:gender"]').count(), 1)
         self.open_builder_panels()
         p.locator('[data-builder-source="b"]').uncheck()
         self.assertEqual(p.locator('[data-builder-metric="b:Yield kg"]').count(), 0)
-        self.assertEqual(p.locator('#fields-list [data-field="q:name"]').count(), 0)
-        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:farmer_name"]').count(), 1)
+        self.assertEqual(p.locator('#fields-list [data-field="q:gender"]').count(), 0)
+        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:crop"]').count(), 1)
         p.locator('[data-builder-source="b"]').check()
-        p.locator('#fields-list .field-row[data-field="q:name"]').click()
+        p.locator('#fields-list .field-row[data-field="q:gender"]').click()
         p.locator('[data-builder-source="b"]').uncheck()
-        self.assertEqual(p.get_by_label("Row level 1").input_value(), "q:name")
+        self.assertEqual(p.get_by_label("Row level 1").input_value(), "q:gender")
         self.assertIn("Select Baseline", p.locator('#work-error').inner_text())
         p.get_by_label("Remove rows level 1").click()
         self.assertEqual(p.locator('#work-error').inner_text(), "")
