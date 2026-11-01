@@ -278,7 +278,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertEqual(result['count']['Wheat'], 34, 'Baseline-only wheat is not mixed with endline crops')
         self.assertEqual(result['count']['Pepper'], result['want']['Pepper'])
         self.assertEqual({k: v for k, v in result['count'].items() if v}, result['want'])
-        self.assertTrue(result['note'])
+        self.assertFalse(result['note'], 'Round 3 (1 November) removed the Grouping note above the table')
 
     def test_change_columns_keep_only_records_with_the_same_answer_in_both_sources(self):
         p = self.page
