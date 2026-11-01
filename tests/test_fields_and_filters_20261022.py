@@ -48,19 +48,23 @@ class FieldsAndFiltersTests(unittest.TestCase):
     def test_equal_field_filter_still_matches_same_crop_after_rename(self):
         p = self.page
         p.evaluate('openFilters(state.tables[0].id)')
+        # The baseline column name still finds the shared question.
         self.add_filter('Baseline Crop')
+        self.assertEqual(p.locator('.condition-title').last.inner_text(), 'Crop')
         p.get_by_label('Same as another field', exact=True).check()
-        p.get_by_label('Comparison field', exact=True).select_option('e:Crop')
         preview = p.locator('#filter-preview').inner_text()
         self.assertRegex(preview, r'^\d+ of \d+ records match')
 
-    def test_same_question_shows_one_name_with_a_source_tag(self):
+    def test_same_question_shows_one_name_without_a_source_tag(self):
         p = self.page
         labels = p.evaluate("""filterFields('source').filter(f => /crop/i.test(f.label)).map(fieldOptionLabel)""")
-        self.assertIn('Crop · Baseline', labels)
-        self.assertIn('Crop · Endline', labels)
-        self.assertIn('Crop group · Baseline', labels)
-        self.assertFalse([x for x in labels if 'Baseline Crop · Baseline' in x or 'Crop · Endline · Endline' in x])
+        self.assertEqual(sorted(labels), ['Crop', 'Crop group'])
+        p.evaluate('openFilters(state.tables[0].id)')
+        self.add_filter('Crop')
+        card = p.locator('.filter-condition').last
+        self.assertEqual(card.locator('.condition-title').inner_text(), 'Crop')
+        options = card.get_by_label('Filter field', exact=True).locator('option').all_inner_texts()
+        self.assertFalse([o for o in options if ' · ' in o and o.split(' · ')[0] in {'Crop', 'Region', 'Gender'}])
 
     def test_group_search_for_a_number_points_to_measurements(self):
         p = self.page
