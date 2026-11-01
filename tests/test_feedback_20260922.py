@@ -60,6 +60,12 @@ class FeedbackBrowserTests(unittest.TestCase):
     def add_definition(self):
         self.page.evaluate("d => state.definitions.push(d)", DEFINITION)
 
+    def open_builder_panels(self):
+        # Builder sections start collapsed; open them the way a person would, by clicking each summary.
+        for panel in self.page.locator('#work-dialog [data-builder-panel]').all():
+            if not panel.evaluate('el => el.open'):
+                panel.locator(':scope > summary').click()
+
     def drag(self, source, target):
         self.page.evaluate("""([source,target])=>{
           const from=document.querySelector(source),to=document.querySelector(target),dt=new DataTransfer();
@@ -108,6 +114,7 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_missing_source_cannot_be_applied_or_imported(self):
         p = self.page
         p.evaluate("openBuilder('crops')")
+        self.open_builder_panels()
         p.locator('[data-builder-source="b"]').uncheck()
         p.locator('[data-action="apply-builder"]').click()
         p.evaluate("openFilters('crops');addFilterField('q:crop')")
@@ -134,6 +141,7 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.assertEqual(result["n"], 3)
         p = self.page
         p.evaluate("openBuilder()")
+        self.open_builder_panels()
         p.locator('[data-builder-metric="custom-test-change"]').check()
         p.locator('[data-builder-metric="yield"]').uncheck()
         self.assertEqual(p.evaluate("work.draft.periods"), ["value"])
@@ -161,16 +169,17 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_source_scope_names_and_retained_unavailable_selection(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:name"]').count(), 1)
-        p.locator('[data-builder-panel="sources"] > summary').click()
+        # Gender is asked only at Baseline, so it leaves the groups list when Baseline is unselected.
+        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:gender"]').count(), 1)
+        self.open_builder_panels()
         p.locator('[data-builder-source="b"]').uncheck()
         self.assertEqual(p.locator('[data-builder-metric="b:Yield kg"]').count(), 0)
-        self.assertEqual(p.locator('#fields-list [data-field="q:name"]').count(), 0)
-        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:farmer_name"]').count(), 1)
+        self.assertEqual(p.locator('#fields-list [data-field="q:gender"]').count(), 0)
+        self.assertEqual(p.locator('#fields-list .field-row[data-field="q:crop"]').count(), 1)
         p.locator('[data-builder-source="b"]').check()
-        p.locator('#fields-list .field-row[data-field="q:name"]').click()
+        p.locator('#fields-list .field-row[data-field="q:gender"]').click()
         p.locator('[data-builder-source="b"]').uncheck()
-        self.assertEqual(p.get_by_label("Row level 1").input_value(), "q:name")
+        self.assertEqual(p.get_by_label("Row level 1").input_value(), "q:gender")
         self.assertIn("Select Baseline", p.locator('#work-error').inner_text())
         p.get_by_label("Remove rows level 1").click()
         self.assertEqual(p.locator('#work-error').inner_text(), "")
@@ -376,15 +385,12 @@ class FeedbackBrowserTests(unittest.TestCase):
         for width in [390, 320]:
             p.set_viewport_size({'width':width,'height':844})
             p.evaluate("openBuilder()")
-            help_button = p.get_by_label('About categories')
-            help_button.focus()
-            tooltip = help_button.locator('..').locator('[role="tooltip"]')
-            self.assertTrue(tooltip.is_visible())
-            help_button.press('Enter')
-            self.assertTrue(help_button.locator('..').evaluate('el=>el.hasAttribute("data-open")'))
-            tip = tooltip.bounding_box()
-            self.assertGreaterEqual(tip['y'], 0)
-            self.assertLess(tip['y'] + tip['height'], 774)
+            # Sections open from the keyboard and keep their plain subtitle visible while collapsed.
+            groups = p.locator('[data-builder-panel="groups"]')
+            self.assertIn("rows and columns", groups.locator(':scope > summary small').inner_text())
+            groups.locator(':scope > summary').focus()
+            p.keyboard.press('Enter')
+            self.assertTrue(groups.evaluate('el=>el.open'))
             self.assertLessEqual(p.evaluate('document.documentElement.scrollWidth'), width)
             p.screenshot(path=str(ARTIFACTS / f'builder-{width}.png'))
             p.evaluate('closeWork();openChart("crops")')

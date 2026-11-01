@@ -233,7 +233,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         p = self.page
         p.evaluate('openBuilder()')
         groups = p.evaluate("[...document.querySelectorAll('#fields-list .field-row')].map(e => e.dataset.field)")
-        for question in ['q:crop', 'q:region', 'q:project', 'q:woreda', 'q:farmer_uid']:
+        for question in ['q:crop', 'q:region', 'q:project', 'q:gender']:
             self.assertEqual(groups.count(question), 1, question)
         for member in ['b:Region', 'e:Region', 'e:Crop', 'b:Baseline Crop', 'e:Project', 'b:Project', 'e:Wareda', 'b:Woreda']:
             self.assertNotIn(member, groups, f'{member} is folded into its question')
