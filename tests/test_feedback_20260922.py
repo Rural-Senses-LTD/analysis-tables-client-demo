@@ -76,7 +76,7 @@ class FeedbackBrowserTests(unittest.TestCase):
     def test_same_crop_filter_ui_and_persistence(self):
         p = self.page
         p.evaluate("openFilters('crops'); addFilterField('q:crop')")
-        p.get_by_label("Same as another field", exact=True).check()
+        p.get_by_label("Match across data sources", exact=True).check()
         # The comparison starts on the same question: "did the answer change between data sources?"
         self.assertEqual(p.get_by_label("Comparison field", exact=True).input_value(), "q:crop")
         self.assertIn("same answer in every data source", p.locator(".filter-compare-hint").inner_text())
@@ -118,7 +118,7 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.locator('[data-builder-source="b"]').uncheck()
         p.locator('[data-action="apply-builder"]').click()
         p.evaluate("openFilters('crops');addFilterField('q:crop')")
-        p.get_by_label('Same as another field', exact=True).check()
+        p.get_by_label('Match across data sources', exact=True).check()
         self.assertTrue(p.locator('[data-action="apply-filters"]').is_disabled())
         self.assertIn('at least two data sources that ask Crop', p.locator('#filter-preview').inner_text())
         self.assertNotIn('Baseline', p.locator('#filter-preview').inner_text())
