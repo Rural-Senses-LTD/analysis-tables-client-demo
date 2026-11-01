@@ -624,13 +624,42 @@ function pathFor(r,fields){return fields.map(id=>[id,blank(value(r,id))?null:Str
 const pathKey = path => JSON.stringify(path);
 const pathLabel = path => path.map(x=>x[1]??'Blank').join(' / ')||'All records';
 function benchmarkKey(r,condition){return pathKey(pathFor(r,condition.refs||[]));}
-function testCondition(r,c,benchmarks){
-  if(c.field===MIN_N_FIELD.id)return true;
-  const v=value(r,c.field);
+// A filter names a question, never a data source. Its answers come from the table's selected sources that hold the record and ask the question,
+// so the same rules work for any number of sources and any question names.
+const allSourceIds=()=>dataSources().map(s=>s.id);
+const askedIn=(id,sources)=>sources.filter(src=>questionMap.get(id)?.fields[src]);
+function answersOf(r,id,sources=allSourceIds()){
+  const q=questionMap.get(id);if(!q)return[];
+  return askedIn(id,sources).filter(src=>sourceRecord(r,src)).map(src=>({src,value:value(r,q.fields[src])}));
+}
+const answerKey=v=>blank(v)?'':String(v).trim().toLocaleLowerCase();
+function testQuestion(r,c,sources){
+  const answers=answersOf(r,c.field,sources),given=answers.map(a=>a.value).filter(v=>!blank(v)),hasBlank=given.length<answers.length||!answers.length;
   if(c.op==='eqField'){
-    const other=value(r,c.otherField);
-    const left=blank(v)?'':String(v).trim().toLocaleLowerCase(),right=blank(other)?'':String(other).trim().toLocaleLowerCase();return left!==''&&right!==''&&left===right;
+    // Same question: the answer did not change across sources. Different questions: both agree within each source, and may change between sources.
+    if(c.otherField===c.field){const keys=given.map(answerKey).filter(Boolean);return keys.length>=2&&keys.every(k=>k===keys[0]);}
+    const other=new Map(answersOf(r,c.otherField,sources).map(a=>[a.src,answerKey(a.value)]));
+    const pairs=answers.map(a=>[answerKey(a.value),other.get(a.src)]).filter(([x,y])=>x&&y);
+    return pairs.length>0&&pairs.every(([x,y])=>x===y);
   }
+  if(c.op==='missing')return !given.length;
+  if(c.op==='present')return given.length>0;
+  if(c.op==='in'||c.op==='notin'){
+    if(!given.length&&c.includeBlank===undefined)return false;
+    const chosen=new Set((c.values||[]).map(String)),hit=given.some(v=>chosen.has(String(v)))||hasBlank&&c.includeBlank===true;
+    return c.op==='in'?hit:!hit;
+  }
+  if(['eq','neq','contains','notcontains'].includes(c.op)){
+    if(!given.length)return false;
+    const q=String(c.value??'').toLocaleLowerCase(),hit=given.some(v=>{const s=String(v).toLocaleLowerCase();return ['eq','neq'].includes(c.op)?s===q:s.includes(q);});
+    return ['eq','contains'].includes(c.op)?hit:!hit;
+  }
+  return false;
+}
+function testCondition(r,c,benchmarks,sources=allSourceIds()){
+  if(c.field===MIN_N_FIELD.id)return true;
+  if(questionMap.has(c.field))return testQuestion(r,c,sources);
+  const v=value(r,c.field);
   if(c.op==='missing')return blank(v);
   if(c.op==='present')return !blank(v);
   if(blank(v))return ['in','notin'].includes(c.op)&&c.includeBlank!==undefined?(c.op==='in'?c.includeBlank:!c.includeBlank):false;
@@ -646,18 +675,20 @@ function testCondition(r,c,benchmarks){
   if(!finite(n))return false;
   return c.op==='lt'?n<lo:c.op==='lte'?n<=lo:c.op==='gt'?n>lo:c.op==='gte'?n>=lo:c.op==='range'?n>=lo&&n<=hi:false;
 }
-function matches(r,node,benchmarks){
-  if(node.kind!=='group')return testCondition(r,node,benchmarks);
+function matches(r,node,benchmarks,sources){
+  if(node.kind!=='group')return testCondition(r,node,benchmarks,sources);
   if(!node.children.length)return true;
-  const result=node.mode==='any'?node.children.some(c=>matches(r,c,benchmarks)):node.children.every(c=>matches(r,c,benchmarks));
+  const result=node.mode==='any'?node.children.some(c=>matches(r,c,benchmarks,sources)):node.children.every(c=>matches(r,c,benchmarks,sources));
   return node.not?!result:result;
 }
 function leaves(node){return node.kind==='group'?node.children.flatMap(leaves):[node];}
 function validateFilterSources(t){
-  const selectedSources=sourceSettings(t).ids;
-  for(const c of leaves(t.filters.source).filter(c=>c.op==='eqField')){
-    const missing=[c.field,c.otherField].flatMap(id=>fieldMap.has(id)?[fieldMap.get(id).period]:definitionSources(fieldInfo(id)||{})).filter(id=>!selectedSources.includes(id));
-    if(missing.length)throw Error('Select '+[...new Set(missing)].map(sourceName).join(', ')+' to compare these fields.');
+  const selected=sourceSettings(t).ids;
+  for(const c of leaves(t.filters.source).filter(c=>questionMap.has(c.field))){
+    const name=label(c.field),asked=askedIn(c.field,selected);
+    if(c.op==='eqField'&&c.otherField===c.field){if(asked.length<2)throw Error(`Select at least two data sources that ask ${name} to compare its answers.`);}
+    else if(c.op==='eqField'){if(!askedIn(c.otherField,asked).length)throw Error(`No selected data source asks both ${name} and ${label(c.otherField)}.`);}
+    else if(!asked.length)throw Error(`None of the selected data sources ask ${name}.`);
   }
 }
 // The N count filter works on finished cells, so it is applied after calculate() instead of inside it.
@@ -674,12 +705,12 @@ const calculateCells=calculate;
 calculate=function(t){return applyMinCellN(t,calculateCells(t));};
 function filterRecords(t){
   validateFilterSources(t);
-  const all=cohort(t),eligible=all.filter(r=>matches(r,t.filters.source)),benchmarks=new Map();
+  const all=cohort(t),sources=sourceSettings(t).ids,eligible=all.filter(r=>matches(r,t.filters.source,null,sources)),benchmarks=new Map();
   for(const c of leaves(t.filters.measures).filter(x=>x.op==='belowMedian')){
     const groups=new Map();for(const r of eligible){const key=benchmarkKey(r,c);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(value(r,c.field));}
     benchmarks.set(c.id,new Map([...groups].map(([key,vals])=>{const med=median(vals);return[key,{median:med,cutoff:med===null||blank(c.value)?null:med*Number(c.value)/100,n:vals.filter(finite).length,cohort:vals.length}];})));
   }
-  return{all,eligible,included:eligible.filter(r=>matches(r,t.filters.measures,benchmarks)),benchmarks};
+  return{all,eligible,included:eligible.filter(r=>matches(r,t.filters.measures,benchmarks,sources)),benchmarks};
 }
 function validateFilters(filters){
   if(!filters||Object.keys(filters).sort().join(',')!=='measures,source')throw Error('Invalid filter sections.');
@@ -689,14 +720,14 @@ function validateFilters(filters){
     function check(node,depth=0){
       if(depth>8)throw Error('Use at most eight nested filter groups.');
       if(node.kind==='group'){if(!['all','any'].includes(node.mode)||!Array.isArray(node.children))throw Error('Invalid filter group.');node.children.forEach(x=>check(x,depth+1));return;}
+      if(['scope','fieldSource','otherSource','agree'].some(k=>k in node)||questionOf.has(node.field)||questionOf.has(node.otherField))throw Error('Filter on the question name. Filters do not choose a data source.');
       const f=fieldInfo(node.field);if(!f)throw Error('Choose an available field.');
       if(typeof node.id!=='string'||conditionIds.has(node.id))throw Error('Filter conditions need unique identifiers.');conditionIds.add(node.id);
       if((phase==='source')===!!(f.defined&&f.type==='number'))throw Error('Place source questions and numeric measures in their respective sections.');
       if(f.virtual){if(node.op!=='gte'||!/^\d+$/.test(String(node.value))||Number(node.value)<1)throw Error('Enter a whole number of 1 or more for the N count.');return;}
       if(!['eq','neq','eqField','contains','notcontains','in','notin','lt','lte','gt','gte','range','missing','present','belowMedian'].includes(node.op))throw Error('Invalid filter operator.');
       if(node.op==='eqField'){
-        const other=fieldInfo(node.otherField);
-        if(phase!=='source'||!other||other.type==='number'||f.type==='number'||node.field===node.otherField)throw Error('Choose two different category fields to compare.');
+        if(phase!=='source'||!questionMap.has(node.field)||!questionMap.has(node.otherField))throw Error('Choose a question to compare with.');
         return;
       }
       if(['missing','present'].includes(node.op))return;
@@ -818,7 +849,7 @@ function mergeGroups(t,axis,keys,name){
 }
 function conditionText(c){
   if(c.field===MIN_N_FIELD.id)return 'N count at least '+c.value+' valid records per cell';
-  if(c.op==='eqField')return fieldOptionLabel(fieldInfo(c.field))+' equals '+fieldOptionLabel(fieldInfo(c.otherField));
+  if(c.op==='eqField')return c.otherField===c.field?label(c.field)+' is the same in every data source':label(c.field)+' matches '+label(c.otherField);
   if(c.kind==='group'){if(!c.children.length)return 'None';return(c.not?'Exclude ':'')+'('+c.children.map(conditionText).join(c.mode==='all'?' AND ':' OR ')+')';}
   const op={eq:'equals',neq:'does not equal',in:'includes',notin:'excludes',lt:'<',lte:'≤',gt:'>',gte:'≥',range:'between',contains:'contains',notcontains:'does not contain',missing:'is blank',present:'is present',belowMedian:'below'}[c.op];
   return label(c.field)+' '+op+(c.op==='belowMedian'?` ${c.value}% of median by ${(c.refs||[]).map(label).join(' + ')||'all eligible records'}`:['missing','present'].includes(c.op)?'':' '+(['in','notin'].includes(c.op)?[...(c.values||[]),...(c.includeBlank?['Blank']:[])].join(', ')||'no answers':c.value)+(c.op==='range'?' and '+c.high:''));
@@ -911,7 +942,14 @@ const cache = new Map();
 let observer,filterDraft=null,filterTarget=null,work=null,returnFocus=null,storageAvailable=true,toastTimer,axisDragState=null;
 function notify(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4000);}
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));storageAvailable=true;}catch{storageAvailable=false;}const status=$('#storage-status');if(status)status.textContent=storageAvailable?'Changes saved on this device':'Storage unavailable · use Export configuration';}
-function load(){try{const saved=localStorage.getItem(STORAGE_KEY);if(saved)state=validateState(JSON.parse(saved));}catch{notify('Saved settings could not be loaded. The original tables are ready.');}}
+// Older saved filters named one data source's column. They are dropped rather than converted, so the rest of the saved tables still load.
+function dropSourceFieldFilters(saved){
+  let dropped=0;
+  const prune=node=>{if(node?.kind!=='group'||!Array.isArray(node.children))return;node.children=node.children.filter(c=>{if(c?.kind!=='group'&&(questionOf.has(c?.field)||questionOf.has(c?.otherField))){dropped++;return false;}return true;});node.children.forEach(prune);};
+  for(const t of saved?.tables||[])for(const root of Object.values(t?.filters||{}))prune(root);
+  return dropped;
+}
+function load(){try{const saved=localStorage.getItem(STORAGE_KEY);if(!saved)return;const parsed=JSON.parse(saved),dropped=dropSourceFieldFilters(parsed);state=validateState(parsed);if(dropped)notify('Filters now use question names. Older filters on a single data source were removed.');}catch{notify('Saved settings could not be loaded. The original tables are ready.');}}
 function modal(title,body,actions='',narrow=false){
   const dialog=$('#work-dialog'),kind=work?.kind||'',sameView=dialog.open&&dialog.dataset.workKind===kind;
   if(!dialog.open)returnFocus=document.activeElement;
@@ -1186,15 +1224,35 @@ let filterPickerOpen=false;
 // Round the presentation only: the draft keeps source extrema and typed values at full precision.
 function filterNumber(value,localized=false){if(blank(value))return '';const n=Number(value);return finite(n)?localized?n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}):n.toFixed(1):'—';}
 function filterTable(){return tableById(filterTarget);}
-function filterFields(phase){const base=catalogue().filter(f=>!phase||(phase==='measures')===!!(f.defined&&f.type==='number'));return !phase||phase==='measures'?[...base,MIN_N_FIELD]:base;}
+const filterSourceIds=()=>filterTable()?sourceSettings(filterTable()).ids:allSourceIds();
+// Each question is listed once, in place of its per-source columns, when a selected source asks it.
+function filterFields(phase){
+  const sources=filterSourceIds(),seen=new Set(),base=[];
+  for(const f of catalogue()){
+    if(phase&&(phase==='measures')!==!!(f.defined&&f.type==='number'))continue;
+    const qid=questionOf.get(f.id);
+    if(!qid){base.push(f);continue;}
+    if(seen.has(qid)||!askedIn(qid,sources).length)continue;
+    seen.add(qid);base.push(questionInfo(questionMap.get(qid)));
+  }
+  return !phase||phase==='measures'?[...base,MIN_N_FIELD]:base;
+}
 function filterDataset(){return recordPool(filterTable());}
 function filterSourceNote(field){
   if(field===MIN_N_FIELD.id)return '';
+  if(questionMap.has(field)){
+    const sources=filterSourceIds(),n=askedIn(field,sources).length;
+    return n&&n<sources.length?`<p class="help filter-source-note">Asked in ${n} of ${sources.length} selected data sources.</p>`:'';
+  }
   const required=fieldMap.has(field)?[fieldMap.get(field).period]:field.startsWith('m:')?(['delta','pct'].includes(field.split(':')[2])?['b','e']:[field.split(':')[2]]):definitionSources(state.definitions.find(d=>d.id===field)||{});
   const missing=required.filter(id=>!sourceSettings(filterTable()).ids.includes(id));
   return missing.length?`<p class="help filter-source-note">To use values from ${esc(missing.map(sourceName).join(' and '))}, include ${missing.length===1?'that data source':'those data sources'} in Edit table.</p>`:'';
 }
 function filterChoices(field){
+  if(questionMap.has(field)){
+    const sources=filterSourceIds(),answers=filterDataset().map(r=>answersOf(r,field,sources).map(a=>a.value));
+    return{values:[...new Set(answers.flat().filter(v=>!blank(v)).map(String))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})),hasBlank:answers.some(a=>!a.length||a.some(blank))};
+  }
   const values=filterDataset().map(r=>value(r,field));
   return{values:[...new Set(values.filter(v=>!blank(v)).map(String))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})),hasBlank:values.some(blank)};
 }
@@ -1242,14 +1300,12 @@ const filterOperatorLabels={range:'Inclusive range',eqField:'Same answer as anot
 const filterCollapsed=new Set();
 // Fields that describe data cleaning rather than the farmers, so they sit last in the picker.
 const filterAdminField=f=>/^(match_|outlier_|review_|farmer_uid$|name$)|_uid$/i.test(String(f.header||f.label||''));
-const filterSuggestedNames=['crop','region','wareda','project','variety','gender','sex','irrigation'];
+// Suggest questions with a short answer list, asked by the most selected sources first. Works for any project's question names.
 function filterSuggestedFields(){
-  const used=new Set(),out=[];
-  for(const want of filterSuggestedNames){
-    const f=filterFields('source').find(x=>x.type!=='number'&&!filterAdminField(x)&&!used.has(x.id)&&plainFieldLabel(x).toLowerCase().startsWith(want));
-    if(f&&!out.some(o=>plainFieldLabel(o)===plainFieldLabel(f)&&o.sourceLabel===f.sourceLabel)){used.add(f.id);out.push(f);}
-  }
-  return out.slice(0,6);
+  const sources=filterSourceIds();
+  return filterFields('source').map((f,i)=>({f,i,n:f.question?askedIn(f.id,sources).length:0}))
+    .filter(({f,n})=>n&&f.type==='category'&&!filterAdminField(f)&&f.options.length>1&&f.options.length<=40)
+    .sort((a,b)=>b.n-a.n||a.i-b.i).slice(0,6).map(x=>x.f);
 }
 function filterSummary(c,f){
   const unit=f.unit?' '+f.unit:'';
@@ -1259,7 +1315,7 @@ function filterSummary(c,f){
     if(c.op==='in')return n===0?'No answers selected':n>=total?'All answers kept':`Keeping ${n} of ${total} answers`;
     return n===0?'Nothing removed':`Removing ${n} of ${total} answers`;
   }
-  if(c.op==='eqField')return c.otherField&&fieldInfo(c.otherField)?'Same answer as '+fieldOptionLabel(fieldInfo(c.otherField)):'Choose a field to compare with';
+  if(c.op==='eqField')return !questionMap.has(c.otherField)?'Choose a question to compare with':c.otherField===c.field?'Same answer in every data source':'Same answer as '+label(c.otherField);
   if(c.op==='range')return blank(c.value)&&blank(c.high)?'Any value':`${filterNumber(c.value,true)} to ${filterNumber(c.high,true)}${unit}`;
   if(c.op==='missing')return 'Blank answers only';
   if(c.op==='present')return 'Answers that are not blank';
@@ -1289,7 +1345,10 @@ function renderCondition(c,path,phase){
   let input='';
   if(f.virtual)input=`<label class="field min-n-field"><span>Hide cells with fewer than</span><span class="min-n-input"><input type="number" min="1" step="1" inputmode="numeric" aria-label="Minimum valid records per cell" value="${esc(c.value)}" data-filter-path="${attr}" data-prop="value"><em>valid records</em></span></label><p class="help">Small groups can mislead. Cells below this number show N&lt;${esc(c.value||'5')} instead of a value, and are left out of charts and CSV values. Totals follow the same rule.</p>`;
   else if(['in','notin'].includes(c.op))input=filterAnswersHTML(c,attr);
-  else if(c.op==='eqField')input=`<label class="field"><span>Compare with</span><select aria-label="Comparison field" data-filter-path="${attr}" data-prop="otherField"><option value="">Choose a field</option>${optionsHTML(filterFields('source').filter(x=>x.type!=='number'&&x.id!==c.field),c.otherField)}</select></label><p class="help">Compare whole answers on the same linked record, ignoring case and outer spaces. Blank answers never match. Mixed crops only match an identical whole answer.</p>${c.otherField?filterSourceNote(c.otherField):''}`;
+  else if(c.op==='eqField'){
+    const same=c.otherField===c.field;
+    input=`<label class="field"><span>Has the same answer as</span><select aria-label="Comparison field" data-filter-path="${attr}" data-prop="otherField">${questionMap.has(c.otherField)?'':'<option value="">Choose a question</option>'}${optionsHTML(filterFields('source').filter(x=>x.question),c.otherField)}</select></label><p class="help filter-compare-hint">${same?'Keeps records that gave the same answer in every data source that asked it.':'Keeps records where both questions got the same answer within each data source. Answers may change between data sources.'} Case and outer spaces are ignored. Blank answers never match.</p>${!same&&c.otherField?filterSourceNote(c.otherField):''}`;
+  }
   else if(f.type==='number'&&c.op==='range')input=filterRangeHTML(c,f,attr);
   else if(!['missing','present'].includes(c.op))input=`<div class="range-inputs"><input type="${c.op==='belowMedian'||f.type==='number'?'number':f.type==='date'?'date':'text'}" step="any" aria-label="${c.op==='belowMedian'?'Percentage of median':'Filter value'}" placeholder="${c.op==='belowMedian'?'Enter a percentage':'Value'}" value="${esc(c.op==='belowMedian'||f.type==='number'?filterNumber(c.value):c.value)}" data-filter-path="${attr}" data-prop="value">${c.op==='range'?`<input type="${f.type==='date'?'date':'number'}" step="any" aria-label="Range upper bound" placeholder="To" value="${esc(f.type==='date'?c.high:filterNumber(c.high))}" data-filter-path="${attr}" data-prop="high">`:''}</div>`;
   if(c.op==='belowMedian'){
@@ -1297,7 +1356,8 @@ function renderCondition(c,path,phase){
     input+=`<p class="help">Reference median after category filters, before measurement thresholds. Blank values cannot qualify.</p><div class="reference-groups">${[0,1,2].map(i=>`<label>Reference group ${i+1}<select aria-label="Reference group ${i+1}" data-filter-path="${attr}" data-ref="${i}">${optionsHTML(refs,c.refs[i]||'',true)}</select></label>`).join('')}</div><div class="benchmark-slot" data-benchmark="${c.id}"></div>`;
   }
   const open=!filterCollapsed.has(c.id),sourceMode=phase==='source'&&f.type!=='number',standard=['in','notin','eqField'].includes(c.op);
-  const modeControl=sourceMode?(standard?`<fieldset class="filter-mode"><legend>Match answers</legend>${[['in','Keep selected'],['notin','Remove selected'],['eqField','Same as another field']].map(([v,l])=>`<label><input type="radio" name="mode-${esc(c.id)}" value="${v}" data-filter-path="${attr}" data-prop="op"${checked(c.op===v)}><span>${l}</span></label>`).join('')}</fieldset>`:`<label class="field"><span>Match answers</span><select aria-label="Match answers" data-filter-path="${attr}" data-prop="op"><option value="in">${filterOperatorLabels.in}</option><option value="notin">${filterOperatorLabels.notin}</option><option value="eqField">${filterOperatorLabels.eqField}</option><option value="${esc(c.op)}" selected>${esc(operatorLabel)}</option></select></label>`):'';
+  const modes=[['in','Keep selected'],['notin','Remove selected'],...(f.question?[['eqField','Same as another field']]:[])];
+  const modeControl=sourceMode?(standard?`<fieldset class="filter-mode"><legend>Match answers</legend>${modes.map(([v,l])=>`<label><input type="radio" name="mode-${esc(c.id)}" value="${v}" data-filter-path="${attr}" data-prop="op"${checked(c.op===v)}><span>${l}</span></label>`).join('')}</fieldset>`:`<label class="field"><span>Match answers</span><select aria-label="Match answers" data-filter-path="${attr}" data-prop="op"><option value="in">${filterOperatorLabels.in}</option><option value="notin">${filterOperatorLabels.notin}</option>${f.question?`<option value="eqField">${filterOperatorLabels.eqField}</option>`:''}<option value="${esc(c.op)}" selected>${esc(operatorLabel)}</option></select></label>`):'';
   return `<div class="filter-condition${open?'':' collapsed'}" data-cid="${esc(c.id)}"><div class="condition-head"><button type="button" class="condition-toggle" data-action="toggle-filter-card" data-cid="${esc(c.id)}" aria-expanded="${open}" aria-controls="cond-${esc(c.id)}"><span class="condition-chevron" aria-hidden="true"></span><span class="condition-title">${esc(plainFieldLabel(f))}${f.sourceLabel?`<small>${esc(f.sourceLabel)}</small>`:''}</span><span class="condition-summary">${esc(filterSummary(c,f))}</span></button><button type="button" class="delete-condition" data-action="delete-filter-node" data-path="${attr}" aria-label="Remove ${esc(fieldOptionLabel(f))} filter">Remove</button></div><div class="condition-body" id="cond-${esc(c.id)}"${open?'':' hidden'}><label class="field condition-field"><span>Filter on</span><select aria-label="Filter field" data-filter-path="${attr}" data-prop="field">${filterFieldOptions(phase,c.field)}</select></label>${filterSourceNote(c.field)}${modeControl}${c.op!==defaultOp&&!(sourceMode&&standard)&&!f.virtual?`<p class="help filter-operator-note">${esc(operatorLabel)}</p>`:''}${input}</div></div>`;
 }
 function renderFilters(){
@@ -1317,11 +1377,13 @@ function updateFilterPreview(){
 }
 function searchFields(){
   const input=$('#field-search'),query=input.value.trim().toLowerCase(),results=$('#field-results');
-  const suggested=new Set([...filterSuggestedFields().map(f=>f.id),MIN_N_FIELD.id]),rank=f=>suggested.has(f.id)?0:filterAdminField(f)?2:1;
-  const fields=filterFields().filter(f=>[f.label,f.header,f.type,f.unit,f.sourceLabel].filter(Boolean).join(' ').toLowerCase().includes(query)).map((f,i)=>({f,i})).sort((a,b)=>rank(a.f)-rank(b.f)||a.i-b.i).map(x=>x.f);
+  const suggested=[...filterSuggestedFields().map(f=>f.id),MIN_N_FIELD.id],rank=f=>suggested.includes(f.id)?suggested.indexOf(f.id)-suggested.length:filterAdminField(f)?2:1;
+  // A question is also found by any source's own column name, so a source-specific header still finds the shared question.
+  const words=f=>[f.label,f.header,f.type,f.unit,f.sourceLabel,...(f.question?Object.values(f.fields).map(id=>fieldMap.get(id)?.header):[])];
+  const fields=filterFields().filter(f=>words(f).filter(Boolean).join(' ').toLowerCase().includes(query)).map((f,i)=>({f,i})).sort((a,b)=>rank(a.f)-rank(b.f)||a.i-b.i).map(x=>x.f);
   results.innerHTML=fields.map((f,i)=>`<button id="filter-option-${i}" role="option" aria-selected="false" tabindex="-1" data-action="add-search-field" data-field="${esc(f.id)}"><span>${esc(fieldOptionLabel(f))}</span><small>${esc(filterAdminField(f)?'data quality':f.unit||f.type)}</small></button>`).join('');
   results.hidden=false;input.setAttribute('aria-expanded','true');input.removeAttribute('aria-activedescendant');
-  const status=$('#filter-search-status');status.textContent=fields.length?`${fields.length} filters available`:'No matching filters. Try another name or data source.';status.className=fields.length?'sr':'filter-no-results';
+  const status=$('#filter-search-status');status.textContent=fields.length?`${fields.length} filters available`:'No matching filters. Try another name.';status.className=fields.length?'sr':'filter-no-results';
 }
 function closeFilterOptions(){const input=$('#field-search');if(!input)return;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');$('#field-results').hidden=true;$('#filter-search-status').className='sr';}
 document.addEventListener('keydown',event=>{
@@ -1349,11 +1411,17 @@ function filterChange(el){
   const path=JSON.parse(el.dataset.filterPath),node=filterNode(path),prop=el.dataset.prop;
   if(el.dataset.answer!==undefined){node.values=node.values||[];if(el.checked)node.values=[...new Set([...node.values,el.dataset.answer])];else node.values=node.values.filter(v=>String(v)!==el.dataset.answer);refreshFilterCard(node);}
   else if(el.dataset.ref!==undefined){node.refs[Number(el.dataset.ref)]=el.value;node.refs=node.refs.filter(Boolean);renderFilters();return;}
-  else if(prop==='field'){Object.assign(node,condition(path[0],el.value));renderFilters();return;}
+  else if(prop==='field'){
+    const old=node.field,compare=node.op==='eqField'&&questionMap.has(el.value),other=node.otherField;
+    Object.assign(node,condition(path[0],el.value));
+    // Keep a comparison when the question changes; a self-comparison follows the new question.
+    if(compare){node.op='eqField';node.values=[];delete node.includeBlank;node.otherField=other===old||!questionMap.has(other)?el.value:other;}
+    renderFilters();return;
+  }
   else{
     node[prop]=el.type==='checkbox'?el.checked:el.value;
     if(el.type==='range'){if(prop==='value'&&!blank(node.high))node.value=String(Math.min(Number(node.value),Number(node.high)));if(prop==='high'&&!blank(node.value))node.high=String(Math.max(Number(node.high),Number(node.value)));}
-    if(prop==='op'){node.value='';node.high='';node.values=[];node.includeBlank=false;if(node.op==='range'&&fieldInfo(node.field).type==='number'){const stats=filterRangeStats(node.field);node.value=stats.min===null?'':String(stats.min);node.high=stats.max===null?'':String(stats.max);}else if(['in','notin'].includes(node.op)){const choices=filterChoices(node.field);node.values=choices.values;node.includeBlank=choices.hasBlank;}renderFilters();$(`.filter-condition[data-cid="${node.id}"] input[data-prop="op"]:checked`)?.focus();return;}
+    if(prop==='op'){node.value='';node.high='';node.values=[];node.includeBlank=false;if(node.op==='range'&&fieldInfo(node.field).type==='number'){const stats=filterRangeStats(node.field);node.value=stats.min===null?'':String(stats.min);node.high=stats.max===null?'':String(stats.max);}else if(['in','notin'].includes(node.op)){const choices=filterChoices(node.field);node.values=choices.values;node.includeBlank=choices.hasBlank;}else if(node.op==='eqField'&&!questionMap.has(node.otherField))node.otherField=node.field;renderFilters();$(`.filter-condition[data-cid="${node.id}"] input[data-prop="op"]:checked`)?.focus();return;}
     if(['value','high'].includes(prop)){syncFilterRange(el,node);refreshFilterCard(node);}
   }
   updateFilterPreview();

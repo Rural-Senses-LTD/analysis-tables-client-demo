@@ -69,48 +69,55 @@ class FeedbackBrowserTests(unittest.TestCase):
 
     def test_same_crop_filter_ui_and_persistence(self):
         p = self.page
-        p.evaluate("openFilters('crops'); addFilterField('b:Baseline Crop')")
+        p.evaluate("openFilters('crops'); addFilterField('q:crop')")
         p.get_by_label("Same as another field", exact=True).check()
-        p.get_by_label("Comparison field", exact=True).select_option("e:Crop")
+        # The comparison starts on the same question: "did the answer change between data sources?"
+        self.assertEqual(p.get_by_label("Comparison field", exact=True).input_value(), "q:crop")
+        self.assertIn("same answer in every data source", p.locator(".filter-compare-hint").inner_text())
+        self.assertEqual(p.locator(".filter-condition .condition-summary").inner_text(), "Same answer in every data source")
         self.assertEqual(p.locator("#filter-error").inner_text(), "")
         p.screenshot(path=str(ARTIFACTS / "same-crop-filter.png"))
         p.locator('[data-action="apply-filters"]').click()
         result = p.evaluate("""()=>{
-          const t=tableById('crops'),result=calculate(t);
-          return {n:result.included.length,total:result.all.length,correct:result.included.every(r=>String(raw(r,'b:Baseline Crop')).trim().toLowerCase()===String(raw(r,'e:Crop')).trim().toLowerCase())};
+          const t=tableById('crops'),result=calculate(t),key=v=>blank(v)?'':String(v).trim().toLowerCase();
+          const same=r=>key(raw(r,'b:Baseline Crop'))!==''&&key(raw(r,'b:Baseline Crop'))===key(raw(r,'e:Crop'));
+          return {n:result.included.length,total:result.all.length,direct:result.all.filter(same).length,correct:result.included.every(same)};
         }""")
         self.assertTrue(result["correct"])
+        self.assertEqual(result["n"], result["direct"])
         self.assertGreater(result["n"], 0)
         self.assertLess(result["n"], result["total"])
         p.reload()
         self.assertEqual(p.evaluate("calculate(tableById('crops')).included.length"), result["n"])
         p.evaluate("openFilters('crops')")
-        self.assertEqual(p.get_by_label("Comparison field").input_value(), "e:Crop")
+        self.assertEqual(p.get_by_label("Comparison field").input_value(), "q:crop")
 
     def test_comparison_rejects_blanks_mixed_crops_and_missing_source(self):
         result = self.page.evaluate("""()=>{
-          const c={kind:'condition',id:'same',field:'b:Baseline Crop',op:'eqField',otherField:'e:Crop'};
+          const c={kind:'condition',id:'same',field:'q:crop',op:'eqField',otherField:'q:crop'};
           const test=(before,after)=>testCondition({b:{values:{'Baseline Crop':before}},e:{values:{Crop:after}}},c);
           const t=clone(tableById('crops'));t.sources=sourceSettings(t);t.sources.ids=['e'];t.change=false;t.filters.source.children=[c];
           let error='';try{filterRecords(t)}catch(e){error=e.message}
-          return {matches:[test(' Onion ','onion'),test('', ''),test(null,'Onion'),test('Sorghum, Tomato','Tomato'),test('Cabbage','Onion'),test('  ',' ')],error};
+          return {matches:[test(' Onion ','onion'),test('', ''),test(null,'Onion'),test('Sorghum, Tomato','Tomato'),test('Cabbage','Onion'),test('  ',' ')],
+                  onlyOne:testCondition({e:{values:{Crop:'Onion'}}},c),error};
         }""")
         self.assertEqual(result["matches"], [True, False, False, False, False, False])
-        self.assertIn("Baseline", result["error"])
+        self.assertFalse(result["onlyOne"], "A record answered in only one data source cannot show an unchanged answer")
+        self.assertEqual(result["error"], "Select at least two data sources that ask Crop to compare its answers.")
 
     def test_missing_source_cannot_be_applied_or_imported(self):
         p = self.page
         p.evaluate("openBuilder('crops')")
         p.locator('[data-builder-source="b"]').uncheck()
         p.locator('[data-action="apply-builder"]').click()
-        p.evaluate("openFilters('crops');addFilterField('b:Baseline Crop')")
+        p.evaluate("openFilters('crops');addFilterField('q:crop')")
         p.get_by_label('Same as another field', exact=True).check()
-        p.get_by_label('Comparison field', exact=True).select_option('e:Crop')
         self.assertTrue(p.locator('[data-action="apply-filters"]').is_disabled())
-        self.assertIn('Baseline', p.locator('#filter-preview').inner_text())
+        self.assertIn('at least two data sources that ask Crop', p.locator('#filter-preview').inner_text())
+        self.assertNotIn('Baseline', p.locator('#filter-preview').inner_text())
         self.assertEqual(p.evaluate("tableById('crops').filters.source.children.length"), 0)
         error = p.evaluate("""()=>{const saved=clone(state);saved.tables.find(t=>t.id==='crops').filters=clone(filterDraft);try{validateState(saved);return ''}catch(e){return e.message}}""")
-        self.assertIn('Baseline', error)
+        self.assertIn('at least two data sources that ask Crop', error)
 
     def test_per_farmer_formula_exclusions_and_value_only_builder(self):
         self.add_definition()
@@ -246,7 +253,7 @@ class FeedbackBrowserTests(unittest.TestCase):
             ];
             const t=clone(tableById('overall'));t.metrics=['net'];t.stats=['mean'];t.rows=['b:Gender'];t.columns=['e:Crop'];
             t.sources=sourceSettings(t);t.sources.records='all';t.filters=emptyFilters();
-            t.filters.source.children=[{kind:'condition',id:'category',field:'b:Baseline Crop',op:'neq',value:'Excluded'}];
+            t.filters.source.children=[{kind:'condition',id:'category',field:'q:crop',op:'neq',value:'Excluded'}];
             t.filters.measures.children=[{kind:'condition',id:'threshold',field:'m:net:b',op:'lt',value:50}];
             const read=(table,rowName,groupName,period)=>{
               const d=calculate(table),row=d.rows.find(r=>r.group.label===rowName),h=d.headers.find(h=>h.group.label===groupName&&h.period===period),c=row.cells[d.headers.indexOf(h)];
@@ -266,7 +273,7 @@ class FeedbackBrowserTests(unittest.TestCase):
             const category=read(categoryOnly,'Female','Onion','b');
             const rawNumeric=clone(t);rawNumeric.filters.measures=group();rawNumeric.filters.source.children.push({kind:'condition',id:'raw-threshold',field:'b:Net income',op:'lt',value:50});
             const raw=read(rawNumeric,'Female','Onion','b');
-            const noOp=clone(t);noOp.filters=emptyFilters();noOp.filters.source.children=[{kind:'condition',id:'present',field:'b:Baseline Crop',op:'present'}];
+            const noOp=clone(t);noOp.filters=emptyFilters();noOp.filters.source.children=[{kind:'condition',id:'present',field:'q:crop',op:'present'}];
             const unchanged=read(noOp,'Female','Onion','b');
             return {baseline,endline,tomato,male,aggregateResult,count,calculated,category,raw,unchanged,empty:emptyEl.textContent};
           }finally{DATA.farmers=previous;}
@@ -318,7 +325,7 @@ class FeedbackBrowserTests(unittest.TestCase):
 
     def test_category_filter_coverage_apply_reload_and_clear(self):
         p = self.page
-        p.evaluate("openFilters('overall');addFilterField('e:Crop')")
+        p.evaluate("openFilters('overall');addFilterField('q:crop')")
         p.locator('[data-action="apply-filters"]').click()
         # Selecting all answers is a no-op, so the normal display remains available.
         self.assertEqual(p.locator('#table-overall [data-action="sample-display"]').count(), 1)
