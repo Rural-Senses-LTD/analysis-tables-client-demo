@@ -57,25 +57,96 @@ class SimpleBuilderPreviewTests(unittest.TestCase):
           document.querySelector('#builder-preview-title')?.remove(); document.querySelector('#builder-preview-summary')?.remove(); builderPreview()""")
         self.assertGreater(p.locator('#builder-preview tbody .cell-button').count(), 0)
 
-    def test_add_axis_buttons_focus_group_search(self):
+    def axis_button(self, axis):
+        return self.page.locator(f'#builder-preview thead th.row-axis-header [data-action="builder-focus-axis"][data-axis="{axis}"]')
+
+    def test_add_axis_buttons_open_a_menu_at_the_button(self):
         p = self.page
         p.evaluate("openBuilder()")
-        for axis, name in [('columns', '+ Column'), ('rows', '+ Row')]:
-            p.evaluate("document.querySelector('[data-builder-panel=\"groups\"]').open=false")
-            button = p.locator(f'#builder-preview thead th.row-axis-header [data-action="builder-focus-axis"][data-axis="{axis}"]')
+        for axis, name, query, field in [('rows', '+ Row', 'reg', 'q:region'), ('columns', '+ Column', 'gend', 'q:gender')]:
+            button = self.axis_button(axis)
             self.assertEqual(button.inner_text(), name)
             button.focus()
             p.keyboard.press('Enter')
-            self.assertTrue(p.evaluate("document.querySelector('[data-builder-panel=\"groups\"]').open"))
-            self.assertEqual(p.evaluate("document.activeElement?.dataset.builderAxisSearch"), axis)
-        # With a measurement the calculated table keeps the shortcuts in its top-left cell.
+            menu = p.locator('#builder-axis-menu')
+            self.assertEqual(menu.count(), 1)
+            self.assertEqual(p.evaluate("document.activeElement?.dataset.builderAxisMenuSearch"), axis)
+            self.assertFalse(p.evaluate("document.querySelector('[data-builder-panel=\"groups\"]').open"), 'The left Groups panel stays as it was')
+            expected = p.evaluate("builderCategoryFields().filter(f => ![...work.draft.rows, ...work.draft.columns].includes(f.id)).map(f => f.id)")
+            self.assertEqual(menu.locator('[role=option]').evaluate_all('els => els.map(e => e.dataset.field)'), expected)
+            # The menu sits next to the button that opened it.
+            box, anchor = menu.bounding_box(), button.bounding_box()
+            self.assertLess(abs(box['x'] - anchor['x']), 40)
+            self.assertLess(abs(box['y'] - (anchor['y'] + anchor['height'])), 40)
+            p.keyboard.type(query)
+            self.assertEqual(menu.locator('[role=option]').evaluate_all('els => els.map(e => e.dataset.field)'), [field])
+            p.keyboard.press('ArrowDown')
+            p.keyboard.press('Enter')
+            self.assertIn(field, p.evaluate(f"work.draft.{axis}"))
+            self.assertEqual(p.locator('#builder-axis-menu').count(), 0)
+            self.assertEqual(p.evaluate("document.activeElement?.dataset.action + ':' + document.activeElement?.dataset.axis"), f'builder-focus-axis:{axis}')
+        # With a measurement the calculated table keeps the buttons in its top-left cell.
         p.evaluate("builderUseMeasurement('net'); builderSyncPeriods(work.draft); renderBuilder()")
         corner = p.locator('#builder-preview thead th.row-axis-header').first
         self.assertEqual(corner.locator('[data-action="builder-focus-axis"]').all_inner_texts(), ['+ Column', '+ Row'])
         self.assertNotIn('Measurement', corner.inner_text())
-        self.screenshot('calculated')
-        p.evaluate("work.draft.rows.push('q:crop'); renderBuilder()")
-        self.assertEqual(p.locator('#builder-preview thead [data-action="builder-focus-axis"]').count(), 2)
+        self.axis_button('rows').click()
+        self.screenshot('axis-menu-calculated')
+        self.assertEqual(p.locator('#builder-axis-menu').count(), 1)
+
+    def test_axis_menu_closes_without_changes(self):
+        p = self.page
+        p.evaluate("openBuilder()")
+        before = p.evaluate("JSON.stringify([work.draft.rows, work.draft.columns])")
+        self.axis_button('rows').click()
+        p.keyboard.press('Escape')
+        self.assertEqual(p.locator('#builder-axis-menu').count(), 0)
+        self.assertTrue(p.locator('#work-dialog').evaluate('el => el.open'), 'Escape closes only the menu')
+        self.assertEqual(p.evaluate("document.activeElement?.dataset.axis"), 'rows')
+        self.axis_button('rows').click()
+        p.locator('#builder-title').click()
+        self.assertEqual(p.locator('#builder-axis-menu').count(), 0)
+        self.axis_button('rows').click()
+        self.axis_button('rows').click()
+        self.assertEqual(p.locator('#builder-axis-menu').count(), 0, 'The same button toggles the menu closed')
+        self.assertEqual(p.evaluate("JSON.stringify([work.draft.rows, work.draft.columns])"), before)
+
+    def test_full_axis_button_explains_the_limit(self):
+        p = self.page
+        p.evaluate("openBuilder()")
+        for axis, other, text in [('rows', 'columns', 'Rows can have up to 3 groups. Remove one in Groups first.'),
+                                  ('columns', 'rows', 'Columns can have up to 3 groups. Remove one in Groups first.')]:
+            p.evaluate(f"work.draft.rows = []; work.draft.columns = []; work.draft.{axis} = ['q:crop', 'q:region', 'q:gender']; renderBuilder()")
+            full = self.axis_button(axis)
+            self.assertEqual(full.get_attribute('aria-disabled'), 'true')
+            self.assertEqual(full.get_attribute('title'), text)
+            self.assertIsNone(full.get_attribute('disabled'), 'Stays focusable so the reason can be read')
+            full.click(force=True)
+            self.assertEqual(p.locator('#builder-axis-menu').count(), 0)
+            self.axis_button(other).click()
+            self.assertEqual(p.locator('#builder-axis-menu').count(), 1)
+            p.keyboard.press('Escape')
+
+    def test_axis_menu_fits_the_screen(self):
+        p = self.page
+        for width, height in [(1440, 900), (390, 844)]:
+            p.set_viewport_size({'width': width, 'height': height})
+            p.evaluate("openBuilder(); work.draft.rows = ['q:crop']; renderBuilder()")
+            self.axis_button('columns').scroll_into_view_if_needed()
+            self.axis_button('columns').click()
+            box = p.locator('#builder-axis-menu').bounding_box()
+            self.assertGreaterEqual(box['x'], 0)
+            self.assertGreaterEqual(box['y'], 0)
+            self.assertLessEqual(box['x'] + box['width'], width)
+            self.assertLessEqual(box['y'] + box['height'], height)
+            self.screenshot(f'axis-menu-{width}')
+            p.keyboard.press('Escape')
+            p.evaluate("closeWork()")
+
+    def test_left_axis_search_reads_search_group(self):
+        p = self.page
+        p.evaluate("openBuilder()")
+        self.assertEqual(p.locator('[data-builder-axis-search]').evaluate_all('els => els.map(e => e.placeholder)'), ['Search group', 'Search group'])
 
     def test_add_axis_buttons_never_leave_the_builder(self):
         p = self.page
