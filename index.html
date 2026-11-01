@@ -518,8 +518,10 @@ function raw(r,id){const f=fieldMap.get(id);return f?sourceRecord(r,f.period)?.v
 let valuePeriod=null;
 function questionValue(r,id,stack){
   const q=questionMap.get(id);if(!q)return null;
-  if(valuePeriod&&!q.fields[valuePeriod])return null;
-  const order=dataSources().map(x=>x.id).filter(p=>q.fields[p]),p=valuePeriod?valuePeriod:order.find(x=>sourceRecord(r,x));
+  // A source that never asked the question borrows the answer from a linked source that did (e.g. Gender asked only at Baseline),
+  // so its column is not empty. A source that asked it always uses its own answer.
+  const order=dataSources().map(x=>x.id).filter(p=>q.fields[p]),asked=valuePeriod&&q.fields[valuePeriod];
+  const p=asked?valuePeriod:order.find(x=>sourceRecord(r,x)&&!blank(value(r,q.fields[x],stack)))||order.find(x=>sourceRecord(r,x));
   return p&&sourceRecord(r,p)?value(r,q.fields[p],stack):null;
 }
 function value(r,id,stack=[]){
@@ -757,11 +759,10 @@ function axisGroups(records,fields,t,axis){
   };
   if(!perSource)for(const r of records)add(r,pathFor(r,fields),null,true);
   else{
-    // Each source groups records by its own answer. Combined and change columns use the first source that holds the record.
+    // Each source groups records by its own answer. A question the source never asked takes the linked record's answer from a source that did
+    // (see questionValue). Combined and change columns use the first source that holds the record.
     const placed=new Set();
     for(const p of sourceSettings(t).ids){
-      // A source that never asked one of these questions has no groups, so its column stays empty instead of borrowing another source's answers.
-      if(fields.some(id=>questionMap.has(id)&&!questionMap.get(id).fields[p]))continue;
       valuePeriod=p;
       try{for(const r of records){if(!sourceRecord(r,p))continue;add(r,pathFor(r,fields),p,!placed.has(r.uid));placed.add(r.uid);}}finally{valuePeriod=null;}
     }
