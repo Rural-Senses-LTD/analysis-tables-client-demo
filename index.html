@@ -1469,9 +1469,36 @@ function fieldAvailableInBuilder(f){
   const required=f.defined?definitionSources(f):f.period?[f.period]:[];
   return required.every(id=>ids.includes(id));
 }
+// Groups are offered only when they split records into a readable number of rows; names and IDs have one value per record.
+const MAX_GROUP_VALUES=10,groupValueCounts=new Map();
+// Unclear labels: an enumerated duplicate ("Income #2") or a cut-off header with an unbalanced parenthesis.
+const unclearGroupLabel=label=>/#\s*\d/.test(label)||(label.match(/\(/g)||[]).length!==(label.match(/\)/g)||[]).length;
+// Fewest distinct non-blank answers among the selected sources that hold the field, stopping early above the limit.
+// The smallest source count is used so a question kept tidy in one source stays available when another source has free-text variants.
+function groupValueCount(f,ids){
+  const q=questionMap.get(f.id),deps=q?Object.values(q.fields).map(id=>state.fieldOverrides?.[id]?.mapping):f.defined?state.definitions.find(d=>d.id===f.id):state.fieldOverrides?.[f.id]?.mapping;
+  const key=JSON.stringify([ids,f.id,deps??null]);
+  if(groupValueCounts.has(key))return groupValueCounts.get(key);
+  let fewest=Infinity;
+  for(const source of dataSources().filter(s=>ids.includes(s.id)&&(!q||q.fields[s.id]))){
+    const seen=new Set();
+    for(const record of source.records){
+      const answer=value({[source.id]:record},q?q.fields[source.id]:f.id);
+      if(!blank(answer))seen.add(String(answer).trim());
+      if(seen.size>MAX_GROUP_VALUES)break;
+    }
+    if(seen.size)fewest=Math.min(fewest,seen.size);
+  }
+  groupValueCounts.set(key,fewest);
+  return fewest;
+}
 function builderCategoryFields(){
-  const own=catalogue().filter(f=>!f.id.startsWith('m:')&&!questionOf.has(f.id)&&(!f.defined||f.kind==='category')&&!NON_ANALYTIC_FIELD_HEADERS.has(f.header)&&(f.type!=='number'||work?.numericGroups||[...work.draft.rows,...work.draft.columns].includes(f.id))&&fieldAvailableInBuilder(f));
-  const questions=[...questionMap.keys()].map(fieldInfo).filter(q=>!NON_ANALYTIC_FIELD_HEADERS.has(q.header)&&fieldAvailableInBuilder(q));
+  const used=[...work.draft.rows,...work.draft.columns],ids=work.draft.sources?.ids||allSourceIds();
+  // A group already in the table (directly or through a source column of the same question) stays listed so existing tables keep their selection.
+  // Numbers appear only when the user opts into numeric groups, so that choice is not undone by the value limit.
+  const readable=f=>used.some(id=>id===f.id||questionOf.get(id)===f.id)||!unclearGroupLabel(f.label)&&(f.type==='number'||groupValueCount(f,ids)<=MAX_GROUP_VALUES);
+  const own=catalogue().filter(f=>!f.id.startsWith('m:')&&!questionOf.has(f.id)&&(!f.defined||f.kind==='category')&&!NON_ANALYTIC_FIELD_HEADERS.has(f.header)&&(f.type!=='number'||work?.numericGroups||used.includes(f.id))&&fieldAvailableInBuilder(f)&&readable(f));
+  const questions=[...questionMap.keys()].map(fieldInfo).filter(q=>!NON_ANALYTIC_FIELD_HEADERS.has(q.header)&&fieldAvailableInBuilder(q)&&readable(q));
   return [...own,...questions].sort((a,b)=>a.label.localeCompare(b.label));
 }
 
