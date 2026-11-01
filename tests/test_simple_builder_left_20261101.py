@@ -108,21 +108,17 @@ class SimpleBuilderLeftTests(unittest.TestCase):
         self.assertTrue(comparison.evaluate('el => el.open'))
         self.assertTrue(p.locator('#builder-source-mode').is_visible())
 
-    def test_axis_editors_live_in_groups_with_search_hooks(self):
+    def test_groups_start_from_one_list_without_axis_boxes(self):
+        # Round 3: the separate Rows / Columns boxes (each with its own search) became one list of all groups.
         p = self.page
         p.evaluate('openBuilder()')
         groups = self.panel('groups')
-        for axis in ['rows', 'columns']:
-            self.assertEqual(groups.locator(f'[data-axis-card="{axis}"][data-axis-drop="{axis}"]').count(), 1)
-            self.assertEqual(groups.locator(f'[data-builder-axis-search="{axis}"]').count(), 1)
-        self.assertEqual(p.locator('.builder-preview-panel [data-axis-card], .builder-preview-panel [data-builder-axis-search]').count(), 0)
-        # The hook agent B's "+ Row" button uses: open Groups, focus the axis search.
-        p.evaluate("""() => {const panel = document.querySelector('[data-builder-panel="groups"]'); panel.open = true;
-          panel.querySelector('[data-builder-axis-search="columns"]').focus();}""")
-        self.assertEqual(p.evaluate('document.activeElement.dataset.builderAxisSearch'), 'columns')
-        p.keyboard.type('Region')
-        p.locator('[data-axis-results="columns"] [data-action="add-axis-field"]').first.click()
-        self.assertEqual(len(p.evaluate('work.draft.columns')), 1)
+        self.assertEqual(p.locator('[data-axis-card], [data-builder-axis-search]').count(), 0)
+        self.assertEqual(groups.locator('input[type=search]').count(), 1)
+        self.open_panel('groups')
+        p.locator('#fields-search').fill('Region')
+        p.locator('#fields-list .group-choice:visible [data-action="add-axis-field"]').first.click()
+        self.assertEqual(len(p.evaluate('work.draft.rows')), 1)
         self.assertTrue(groups.evaluate('el => el.open'))
         # The narrow pane holds the editors without horizontal overflow.
         overflow = p.locator('.builder-settings').evaluate('el => el.scrollWidth - el.clientWidth')
@@ -147,7 +143,7 @@ class SimpleBuilderLeftTests(unittest.TestCase):
         pane = p.locator('.builder-preview-panel')
         self.assertTrue(pane.locator('#builder-preview').is_visible())
         visible_children = pane.evaluate("el => [...el.children].filter(c => !c.hidden && getComputedStyle(c).display !== 'none').map(c => c.id)")
-        self.assertEqual(visible_children, ['builder-preview'])
+        self.assertEqual(visible_children, ['builder-preview-heading', 'builder-preview'])
         text = p.locator('#work-dialog').inner_text()
         for gone in ['Shape your table', 'Choose measurements', 'Live preview', 'Refresh', 'Survey questions & raw data',
                      'Create the table when its structure', 'Choose a measurement, then add groups']:

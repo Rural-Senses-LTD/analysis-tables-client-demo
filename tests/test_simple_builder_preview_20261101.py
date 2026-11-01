@@ -27,7 +27,8 @@ class SimpleBuilderPreviewTests(unittest.TestCase):
         # A new table starts as an inviting, empty table, not an error.
         self.assertEqual(p.evaluate("work.draft.metrics"), [])
         self.assertEqual(p.locator('#builder-preview table.builder-skeleton').count(), 1)
-        self.assertIn('Start with your groups', p.locator('#builder-preview').inner_text())
+        # Round 3: the pane's heading replaces the old intro block.
+        self.assertEqual(p.locator('.builder-preview-heading').inner_text(), 'Table preview')
         self.assertEqual(p.locator('#builder-preview .builder-preview-empty').count(), 0)
         self.screenshot('empty')
 
@@ -46,7 +47,7 @@ class SimpleBuilderPreviewTests(unittest.TestCase):
         self.assertEqual(p.locator('#builder-preview tbody .cell-button').count(), 0)
         self.assertEqual(p.locator('#builder-preview tbody td.skeleton-cell').count(), min(len(expected['rows']), 40) * min(len(expected['columns']), 12))
         self.assertEqual(p.evaluate("JSON.stringify(work.draft)"), before)
-        self.assertIn('Your table is taking shape', p.locator('#builder-preview').inner_text())
+        self.assertEqual(p.locator('.builder-skeleton-intro').count(), 0)
         self.screenshot('skeleton')
 
     def test_preview_survives_missing_title_and_summary(self):
@@ -146,7 +147,9 @@ class SimpleBuilderPreviewTests(unittest.TestCase):
     def test_left_axis_search_reads_search_group(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.assertEqual(p.locator('[data-builder-axis-search]').evaluate_all('els => els.map(e => e.placeholder)'), ['Search group', 'Search group'])
+        # Round 3 replaced the per-axis searches with one search over all groups.
+        self.assertEqual(p.locator('[data-builder-axis-search]').count(), 0)
+        self.assertEqual(p.locator('#fields-search').get_attribute('placeholder'), 'Search groups')
 
     def test_add_axis_buttons_never_leave_the_builder(self):
         p = self.page

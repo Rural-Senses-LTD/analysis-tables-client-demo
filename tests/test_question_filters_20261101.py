@@ -131,7 +131,7 @@ class QuestionFilterTests(unittest.TestCase):
         page.locator('#field-results [role=option]').first.click()
         card = page.locator('.filter-condition').last
         self.assertEqual(card.locator('.filter-source-note').count(), 0, 'Asked everywhere, so no coverage note')
-        card.get_by_label('Same as another field', exact=True).check()
+        card.get_by_label('Match across data sources', exact=True).check()
         card = page.locator('.filter-condition').last
         self.assertEqual(card.get_by_label('Comparison field', exact=True).input_value(), 'q:water')
         self.assertEqual(card.locator('.condition-summary').inner_text(), 'Same answer in every data source')
@@ -154,7 +154,7 @@ class QuestionFilterTests(unittest.TestCase):
         page.evaluate('openFilters(state.tables[0].id)')
         self.assertEqual(page.evaluate('filterSuggestedFields().map(f => f.label)')[0], 'Water source')
         page.evaluate("addFilterField('q:water')")
-        page.get_by_label('Same as another field', exact=True).check()
+        page.get_by_label('Match across data sources', exact=True).check()
         page.get_by_label('Filter field', exact=True).select_option('q:head')
         self.assertEqual(page.evaluate('filterDraft.source.children[0]').get('otherField'), 'q:head')
         self.assertEqual(page.evaluate('filterDraft.source.children[0].op'), 'eqField')
@@ -168,6 +168,20 @@ class QuestionFilterTests(unittest.TestCase):
         self.assertEqual(p.evaluate('state.tables[0].title'), 'Kept title')
         self.assertEqual(p.evaluate('state.tables[0].filters.source.children.length'), 0)
         self.assertIn('Older filters on a single data source were removed', p.locator('#toast').inner_text())
+
+    def test_keep_filter_applies_per_survey(self):
+        result = self.page.evaluate("""(() => {
+          const t = clone(tableById('crops')); t.rows = ['q:crop']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          t.sources = sourceSettings(t); t.sources.records = 'all'; t.cohort = 'all';
+          t.filters = emptyFilters(); t.filters.source.children = [{kind: 'condition', id: 'k', field: 'q:crop', op: 'in', values: ['Onion'], includeBlank: false, value: '', high: '', refs: []}];
+          const d = calculate(t), b = d.headers.findIndex(h => h.period === 'b'), e = d.headers.findIndex(h => h.period === 'e');
+          const pool = recordPool(t), answer = (r, p, h) => r[p]?.values?.[h];
+          return {rows: d.rows.map(r => r.group.label), b: d.rows[0].cells[b].value, e: d.rows[0].cells[e].value,
+                  wantB: pool.filter(r => answer(r, 'b', 'Baseline Crop') === 'Onion').length, wantE: pool.filter(r => answer(r, 'e', 'Crop') === 'Onion').length};
+        })()""")
+        self.assertEqual(result['rows'], ['Onion'], 'Keeping Onion shows only Onion, not crops grown in the other survey')
+        self.assertEqual(result['b'], result['wantB'])
+        self.assertEqual(result['e'], result['wantE'])
 
     def test_filter_code_has_no_project_specific_names(self):
         sources = self.page.evaluate("""[answersOf, testQuestion, testCondition, matches, validateFilterSources, validateFilters, filterFields, filterChoices,
