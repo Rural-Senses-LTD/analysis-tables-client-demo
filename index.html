@@ -390,7 +390,16 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .builder-panel{padding:0;margin-bottom:14px}.builder-panel>summary{padding:15px 17px;cursor:pointer;color:#29483a;font-weight:600;font-size:15px}.builder-panel>summary>small{display:block;font-size:12px;font-weight:400;color:#546858;margin:4px 0 0 18px;overflow-wrap:anywhere}.builder-panel-content{padding:0 16px 16px}.builder-panel .help{color:#526553;margin:0 0 12px}
 .builder-panel-content>.section-heading{display:none}.builder-measurements #metric-options{display:flex;flex-direction:column;max-height:240px;overflow:auto;gap:5px}.builder-measurements .measurement-choice{padding:10px 8px;min-height:53px}.builder-measurements .measurement-choice strong{font-size:13px}.builder-measurements .measurement-choice small{font-size:11px;color:#586b5e}.builder-measurements .measurement-unit{font-size:11px;color:#586b5e}
 .builder-measurements .measurement-search{flex-wrap:wrap;gap:8px}.builder-measurements .measurement-search input{flex-basis:100%;min-width:0}.builder-measurements .measurement-scope{margin-left:auto}.builder-statistics{display:block!important;margin-top:14px}.builder-statistics>span{display:block;margin-bottom:7px;color:#405b48}.stat-options{flex-wrap:wrap}.builder-statistics .stat-choice{font-size:12px}.builder-statistics .stat-choice input:disabled{opacity:.7}
-.builder-fields .fields-list{max-height:235px}.group-choice{display:flex;align-items:center;border-bottom:1px solid #e8ede7;min-width:0}.group-choice[hidden]{display:none}.group-choice .field-row{flex:1;min-width:0;flex-wrap:wrap;gap:4px;border:0}.group-choice .field-row-label{white-space:normal;line-height:1.4}.group-choice .field-row small{margin-left:15px;width:100%;color:#5b6f60}.builder-fields .group-to-column{padding:5px;min-width:65px;min-height:30px;font-size:10px;white-space:nowrap;border:0;color:#42694e;background:transparent}.numeric-groups{font-size:11px!important;margin:10px 0!important;align-items:flex-start!important;color:#556959}
+.builder-fields .fields-list{max-height:235px}.group-choice{display:flex;align-items:center;border-bottom:1px solid #e8ede7;min-width:0}.group-choice[hidden]{display:none}.group-choice .field-row{flex:1;min-width:0;flex-wrap:wrap;gap:4px;border:0}.group-choice .field-row-label{white-space:normal;line-height:1.4}.group-choice .field-row small{margin-left:15px;width:100%;color:#5b6f60}
+/* Groups: one list of all groups, with "In your table" above it. Rows | Columns is a small switch on each chosen group. */
+.table-groups-heading{font-size:12px;font-weight:600;color:#5c6f60;margin:0 0 8px}.table-group-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.table-group{display:flex;align-items:center;gap:6px;padding:7px 4px;background:white;border:1px solid #dce6dc;border-radius:10px;min-width:0}.table-group.field-drop-active{outline:2px dashed #6d9e5e;outline-offset:-2px;background:#f4faf1}
+.table-group-name{flex:1 1 0;min-width:0}.table-group-name strong{display:block;font-size:13px;font-weight:600;color:#26412c;line-height:1.3;overflow-wrap:anywhere}.table-group-name small{display:block;margin-top:1px;font-size:10px;color:#5b6f60;line-height:1.35}
+.table-group-controls{display:flex;align-items:center;gap:2px;flex-shrink:0}.table-group .axis-move-controls{flex-wrap:nowrap;max-width:none;gap:0}.axis-switch{display:inline-flex;padding:2px;border:1px solid #d4e0d5;border-radius:99px;background:#f1f5f1}
+.axis-switch button{border:0;background:transparent;border-radius:99px;min-height:26px;padding:3px 7px;font-size:11px;color:#56685b;cursor:pointer}.axis-switch button[aria-pressed=true]{background:white;color:#2f5a3d;font-weight:600;box-shadow:0 1px 4px #1f472722;cursor:default}.axis-switch button[aria-pressed=false]:hover{color:#2f5a3d;background:#e6eee6}
+.table-group .axis-move-controls button{border:0;background:transparent;border-radius:6px;width:22px!important;height:28px;min-height:28px;padding:0;font-size:15px;color:#4e7358}.table-group .axis-move-controls button:hover:not(:disabled){background:#eef3ee}.table-group .axis-move-controls button:disabled{opacity:.25}.table-group [data-action=remove-level]{font-size:18px}
+.table-groups-note{margin:8px 0 0;font-size:11px;line-height:1.4;color:#5c4d17}.field-row-add{flex-shrink:0;margin-left:auto;padding:2px 10px;border:1px solid #c9d8cb;border-radius:99px;background:white;font-size:11px;font-weight:600;color:#365c43}.field-row:hover .field-row-add,.field-row:focus-visible .field-row-add{background:var(--primary);border-color:var(--primary);color:white}
+@media(max-width:760px){.table-group{flex-wrap:wrap;gap:4px 6px;padding:8px 6px}.table-group-controls{flex-basis:100%;justify-content:space-between;padding-left:18px}.table-group-name strong{font-size:15px}.table-group-name small{font-size:11px}.axis-switch button{min-height:34px;padding:4px 12px;font-size:13px}.table-group .axis-move-controls button{width:38px!important;height:38px;min-height:38px}.field-row-add{font-size:13px;padding:4px 12px}}
 .builder-preview-panel>.builder-name{margin-bottom:17px}.builder-preview-panel .builder-axes{gap:12px;margin-bottom:20px}.builder-axis{padding:14px;gap:10px}.axis-heading h3{font-size:15px}.axis-heading p{color:#5a6d5e}.axis-empty{padding:10px!important;min-height:65px!important}.axis-empty small{color:#5a6d5e}.axis-search input{font-size:13px!important}.axis-move-controls{flex-wrap:wrap;max-width:52px}.builder-axis .axis-move-controls button{width:25px!important;min-height:26px}.axis-field small{color:#596e60}
 .builder-preview-panel #builder-preview-title{font-size:19px;margin-bottom:10px}.builder-empty-matrix{width:100%}.builder-empty-matrix td{height:170px;text-align:center!important;white-space:normal}.builder-empty-matrix p{color:#536b5b;font-size:13px}.builder-source-toolbar{flex-wrap:wrap}.builder-source-toolbar input{flex-basis:100%}.builder-sources .source-selection{grid-template-columns:1fr}.builder-sources .form-grid{grid-template-columns:1fr}.builder-preview-jump{display:none}
 @media(max-width:1100px) and (min-width:761px){.builder-layout{grid-template-columns:320px minmax(0,1fr)}.builder-preview-panel{padding:20px 16px}.builder-preview-panel .builder-axes{grid-template-columns:1fr}.builder-settings{padding:18px 12px}}
@@ -418,10 +427,6 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .builder-settings>.builder-heading{font-size:21px;line-height:1.3;letter-spacing:-.3px;margin:0 0 16px;color:#1f3a2c}
 .builder-settings>.builder-name{margin-bottom:18px}
 .builder-subheading{font-size:12px;font-weight:600;color:#5c6f60;margin:16px 0 8px;padding-top:14px;border-top:1px solid #e5ebe2}
-.builder-settings .builder-axes{grid-template-columns:1fr;gap:10px;margin:0}
-.builder-settings .builder-axis{border-radius:12px;padding:12px;gap:8px;box-shadow:none;background:#fbfcfa}
-.builder-settings .axis-heading h3{font-size:14px;margin:0}
-.builder-settings .axis-empty{min-height:0!important;padding:8px 10px!important}
 .builder-comparison>summary{align-items:center;min-height:32px;border-radius:8px}.builder-comparison>summary::before{content:'›';display:inline-block;font-size:18px;line-height:1;color:#2f664c;width:12px}.builder-comparison>summary:hover{color:#2f664c}.builder-comparison>summary:focus-visible{outline:2px solid #2f664c;outline-offset:3px}
 .builder-preview-panel:focus{outline:none}
 
@@ -1520,9 +1525,9 @@ function groupValueCount(f,ids){
 function builderCategoryFields(){
   const used=[...work.draft.rows,...work.draft.columns],ids=work.draft.sources?.ids||allSourceIds();
   // A group already in the table (directly or through a source column of the same question) stays listed so existing tables keep their selection.
-  // Numbers appear only when the user opts into numeric groups, so that choice is not undone by the value limit.
+  // Numbers are never offered as new groups; a number already used by a saved table stays listed so that table still edits.
   const readable=f=>used.some(id=>id===f.id||questionOf.get(id)===f.id)||!unclearGroupLabel(f.label)&&(f.type==='number'||groupValueCount(f,ids)<=MAX_GROUP_VALUES);
-  const own=catalogue().filter(f=>!f.id.startsWith('m:')&&!questionOf.has(f.id)&&(!f.defined||f.kind==='category')&&!NON_ANALYTIC_FIELD_HEADERS.has(f.header)&&(f.type!=='number'||work?.numericGroups||used.includes(f.id))&&fieldAvailableInBuilder(f)&&readable(f));
+  const own=catalogue().filter(f=>!f.id.startsWith('m:')&&!questionOf.has(f.id)&&(!f.defined||f.kind==='category')&&!NON_ANALYTIC_FIELD_HEADERS.has(f.header)&&(f.type!=='number'||used.includes(f.id))&&fieldAvailableInBuilder(f)&&readable(f));
   const questions=[...questionMap.keys()].map(fieldInfo).filter(q=>!NON_ANALYTIC_FIELD_HEADERS.has(q.header)&&fieldAvailableInBuilder(q)&&readable(q));
   return [...own,...questions].sort((a,b)=>a.label.localeCompare(b.label));
 }
@@ -1531,17 +1536,31 @@ function filterBuilderFields(){const query=(work.fieldQuery||'').trim().toLowerC
     // A search for a number (such as yield) finds nothing here by design, so say where it lives instead of showing a dead end.
     const isNumber=query&&visible===0&&filterFields().some(f=>f.type==='number'&&!f.virtual&&(f.label+' '+(f.sourceLabel||'')).toLowerCase().includes(query));
     empty.textContent=isNumber?`“${work.fieldQuery.trim()}” is a number, not a group. Choose it under Measurements, then use groups such as crop or region for rows and columns.`:'No groups match your search.';}}
+// Groups start from one list of every group. Adding one makes it a row (a column once rows are full); "In your table" then
+// lets the person switch it between rows and columns, reorder it within its axis or remove it, without separate row/column boxes.
+const MAX_AXIS_GROUPS=3;
+const builderGroupName=id=>{const f=fieldInfo(id);return f?(f.question?f.label:plainFieldLabel(f)):label(id);};
+function builderAutoAxis(d){return d.rows.length<MAX_AXIS_GROUPS?'rows':d.columns.length<MAX_AXIS_GROUPS?'columns':null;}
 function fieldsBrowserHTML(d){
   const used=[...d.rows,...d.columns],available=builderCategoryFields().filter(f=>!used.includes(f.id)).sort((a,b)=>a.label.localeCompare(b.label));
-  return `<details class="builder-fields builder-section builder-panel" data-builder-panel="groups"${work.panels.groups?' open':''}><summary><span>Groups</span><small>Groups are the table's rows and columns, such as Crop or Region. You can drag groups directly to the table preview.</small></summary><div class="builder-panel-content"><div class="builder-axes">${axisEditor('rows')}${axisEditor('columns')}</div><h4 class="builder-subheading">All groups</h4><input id="fields-search" type="search" placeholder="Search groups" aria-label="Search groups" value="${esc(work.fieldQuery||'')}"><label class="check-label numeric-groups"><input type="checkbox" id="builder-numeric-groups"${checked(work.numericGroups)}>Group by individual numeric values</label><div class="fields-list" id="fields-list">${available.map(f=>`<div class="group-choice" data-field-label="${esc(f.label.toLowerCase())}"><button type="button" class="field-row" draggable="true" data-drag-kind="category" data-field="${esc(f.id)}" data-action="add-axis-field" data-axis="rows" title="Drag to row or column headers, or click to add to rows"><span class="field-row-drag" aria-hidden="true">⠿</span><span class="field-row-label">${esc(f.question?f.label:plainFieldLabel(f))}</span>${f.defined?'<small>Defined</small>':''}</button><button class="group-to-column" data-action="add-axis-field" data-axis="columns" data-field="${esc(f.id)}" aria-label="Add ${esc(f.question?f.label:plainFieldLabel(f))} to columns">To columns</button></div>`).join('')||'<p class="help">All available groups are already in your table.</p>'}</div><p id="fields-empty" class="help" hidden>No groups match your search.</p><button class="text-button" data-action="builder-definitions" data-tab="categories">Group definitions</button></div></details>`;
+  return `<details class="builder-fields builder-section builder-panel" data-builder-panel="groups"${work.panels.groups?' open':''}><summary><span>Groups</span><small>Groups are the table's rows and columns, such as Crop or Region. You can drag groups directly to the table preview.</small></summary><div class="builder-panel-content">${tableGroupsHTML(d)}<input id="fields-search" type="search" placeholder="Search groups" aria-label="Search groups" value="${esc(work.fieldQuery||'')}"><div class="fields-list" id="fields-list" role="list" aria-label="All groups">${available.map(f=>{const name=f.question?f.label:plainFieldLabel(f);return `<div class="group-choice" role="listitem" data-field-label="${esc(f.label.toLowerCase())}"><button type="button" class="field-row" draggable="true" data-drag-kind="category" data-field="${esc(f.id)}" data-action="add-axis-field" data-axis="auto" aria-label="Add ${esc(name)}${f.defined?' (defined group)':''}" title="Click to add, or drag onto the table preview's row or column headers"><span class="field-row-drag" aria-hidden="true">⠿</span><span class="field-row-label">${esc(name)}</span><span class="field-row-add" aria-hidden="true">Add</span>${f.defined?'<small>Defined</small>':''}</button></div>`;}).join('')||'<p class="help">All available groups are already in your table.</p>'}</div><p id="fields-empty" class="help" hidden>No groups match your search.</p><button class="text-button" data-action="builder-definitions" data-tab="categories">Group definitions</button></div></details>`;
+}
+// "In your table": rows first, then columns, each with a Rows | Columns switch. Hidden until the table has a group.
+function tableGroupsHTML(d){
+  const items=[...d.rows.map((id,i)=>['rows',id,i]),...d.columns.map((id,i)=>['columns',id,i])];if(!items.length)return '';
+  const full=['rows','columns'].filter(axis=>d[axis].length>=MAX_AXIS_GROUPS),note=full.length===2?'Rows and columns are full (3 each). Remove a group to add another.':full.length?`${full[0]==='rows'?'Rows are':'Columns are'} full (3). New groups go to ${full[0]==='rows'?'columns':'rows'}.`:'';
+  return `<section class="table-groups" aria-labelledby="table-groups-heading"><h4 id="table-groups-heading" class="table-groups-heading">In your table</h4><ul class="table-group-list">${items.map(([axis,id,i])=>{
+    const f=fieldInfo(id),name=esc(builderGroupName(id)),count=d[axis].length,where=`${axis==='rows'?'row':'column'} ${i+1}`,detail=[f?.question?'':f?.sourceLabel||'Custom group',!fieldAvailableInBuilder(f)?'Select its source or remove this group':''].filter(Boolean).join(' · ');
+    return `<li class="axis-level table-group" data-axis="${axis}" data-index="${i}" data-field="${esc(id)}" data-axis-drop="${axis}"><span class="axis-drag-handle" draggable="true" aria-hidden="true" title="Drag to reorder, or onto the preview headers">⠿</span><div class="table-group-name"><strong>${name}</strong>${detail?`<small>${esc(detail)}</small>`:''}</div><div class="table-group-controls"><div class="axis-switch" role="group" aria-label="Show ${name} as rows or columns">${['rows','columns'].map(to=>`<button type="button" data-action="transfer-level" data-axis="${axis}" data-index="${i}" data-to="${to}" aria-pressed="${to===axis}"${to===axis?' data-focus="switch"':''}>${to==='rows'?'Rows':'Columns'}</button>`).join('')}</div><div class="axis-move-controls"><button type="button" data-action="move-level" data-axis="${axis}" data-index="${i}" data-direction="-1" aria-label="Move ${name} up (${where})"${i===0?' disabled':''}>↑</button><button type="button" data-action="move-level" data-axis="${axis}" data-index="${i}" data-direction="1" aria-label="Move ${name} down (${where})"${i===count-1?' disabled':''}>↓</button><button type="button" data-action="remove-level" data-axis="${axis}" data-index="${i}" aria-label="Remove ${name} from the table">×</button></div></div></li>`;}).join('')}</ul>${note?`<p class="table-groups-note" role="status">${note}</p>`:''}<h4 class="builder-subheading">All groups</h4></section>`;
+}
+// After a re-render, put keyboard focus back on the control the person was using, so the list does not reset to the top.
+function focusBuilderGroup(field,...selectors){
+  const item=field&&$(`.table-group[data-field="${CSS.escape(field)}"]`),target=item&&([...selectors,'[data-focus="switch"]'].map(sel=>$(sel,item)).find(Boolean));
+  (target||$('#fields-search'))?.focus({preventScroll:true});target?.scrollIntoView?.({block:'nearest'});
 }
 function builderFieldOptions(fields,selectedId){
   const groups=new Map();for(const f of fields){const key=f.defined?'Custom groups':'Questions';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(f);}
   return [...groups].map(([name,items])=>`<optgroup label="${esc(name)}">${items.map(f=>`<option value="${esc(f.id)}"${selected(f.id,selectedId)}>${esc(f.label)}${f.question||f.defined||!f.sourceLabel?'':' ('+esc(f.sourceLabel)+')'}</option>`).join('')}</optgroup>`).join('');
-}
-function axisEditor(axis){
-  const values=work.draft[axis],fields=[...builderCategoryFields(),...values.filter(id=>!builderCategoryFields().some(f=>f.id===id)).map(fieldInfo).filter(Boolean)],name=axis==='rows'?'Row':'Column',other=axis==='rows'?'columns':'rows';
-  return `<section class="builder-axis" data-axis-card="${axis}" data-axis-drop="${axis}"><div class="axis-heading"><div><h3>${axis==='rows'?'Rows':'Columns'}</h3></div><span class="axis-count">${values.length}/3</span></div><div class="axis-editor">${values.map((v,i)=>`<div class="axis-level" data-axis="${axis}" data-index="${i}"><span class="axis-drag-handle" draggable="true" aria-hidden="true" title="Drag to rows, columns or preview">⠿</span><span class="level-number">${i+1}</span><div class="axis-field"><select aria-label="${name} level ${i+1}" data-builder-axis="${axis}" data-index="${i}">${builderFieldOptions(fields,v)}</select><small>${esc(fieldInfo(v)?.question?'':fieldInfo(v)?.sourceLabel||'Custom group')}${!fieldAvailableInBuilder(fieldInfo(v))?' · Select its source or remove this group':''}</small></div><div class="axis-move-controls"><button data-action="move-level" data-axis="${axis}" data-index="${i}" data-direction="-1" aria-label="Move ${axis} level ${i+1} up"${i===0?' disabled':''}>↑</button><button data-action="move-level" data-axis="${axis}" data-index="${i}" data-direction="1" aria-label="Move ${axis} level ${i+1} down"${i===values.length-1?' disabled':''}>↓</button><button data-action="transfer-level" data-axis="${axis}" data-index="${i}" aria-label="Move ${esc(label(v))} to ${other}" title="Move to ${other}">⇄</button><button data-action="remove-level" data-axis="${axis}" data-index="${i}" aria-label="Remove ${axis} level ${i+1}">×</button></div></div>`).join('')||`<div class="axis-empty"><span>All records together</span><small>Drop a group here, or search below.</small></div>`}</div><div class="axis-search"><input type="search" data-builder-axis-search="${axis}" placeholder="Search group" aria-label="Search ${axis} groups"><div class="axis-search-results" data-axis-results="${axis}" hidden></div></div></section>`;
 }
 function builderOrderedSelection(previous,selectedValues){return [...previous.filter(id=>selectedValues.includes(id)),...selectedValues.filter(id=>!previous.includes(id))];}
 function builderSyncPeriods(d){
@@ -1706,18 +1725,28 @@ function builderClick(button){
   if(action==='add-measurement-field'){readBuilder();builderUseMeasurement(button.dataset.field);work.measurementSelectionChanged=true;builderSyncPeriods(work.draft);renderBuilder();builderMenuButton('measurements')?.focus({preventScroll:true});return true;}
 
   if(action==='builder-jump-preview'){const panel=$('.builder-preview-panel');panel.scrollIntoView({block:'start',behavior:'instant'});panel.focus({preventScroll:true});return true;}
-  if(action==='transfer-level'){readBuilder();moveBuilderGroup(button.dataset.axis,Number(button.dataset.index),button.dataset.axis==='rows'?'columns':'rows');renderBuilder();return true;}
+  if(action==='transfer-level'){
+    // The Rows | Columns switch sends data-to; the pressed side is a no-op. Without data-to it flips to the other axis.
+    readBuilder();const from=button.dataset.axis,index=Number(button.dataset.index),to=button.dataset.to||(from==='rows'?'columns':'rows'),field=work.draft[from]?.[index];if(to===from)return true;
+    moveBuilderGroup(from,index,to);renderBuilder();if(button.closest('.table-group'))focusBuilderGroup(field);return true;
+  }
   if(!['add-level','remove-level','move-level','add-axis-field'].includes(action))return false;
-  readBuilder();const axis=button.dataset.axis,list=work.draft[axis],index=Number(button.dataset.index);
-  if(action==='remove-level')list.splice(index,1);
-  if(action==='move-level'){const target=index+Number(button.dataset.direction);if(target>=0&&target<list.length)[list[index],list[target]]=[list[target],list[index]];}
+  // data-axis="auto" (the all-groups list) adds to rows, or to columns once rows hold three groups.
+  readBuilder();const axis=button.dataset.axis==='auto'?builderAutoAxis(work.draft):button.dataset.axis;
+  if(!axis)throw Error('Rows and columns each hold up to 3 groups. Remove a group to add another.');
+  const list=work.draft[axis],index=Number(button.dataset.index),inTable=!!button.closest('.table-group'),position=$$('.table-group').indexOf(button.closest('.table-group'));
+  const listRows=()=>$$('#fields-list .group-choice:not([hidden]) .field-row'),listPosition=listRows().indexOf(button);let refocus=null;
+  if(action==='remove-level'){list.splice(index,1);if(inTable)refocus=()=>{const items=$$('.table-group'),item=items[position]||items[position-1];($('[data-action="remove-level"]',item||document.body)||$('#fields-search'))?.focus({preventScroll:true});};}
+  if(action==='move-level'){const field=list[index],direction=button.dataset.direction,target=index+Number(direction);if(target>=0&&target<list.length)[list[index],list[target]]=[list[target],list[index]];if(inTable)refocus=()=>focusBuilderGroup(field,`[data-direction="${direction}"]:not(:disabled)`,'[data-action="move-level"]:not(:disabled)');}
   if(action==='add-level'||action==='add-axis-field'){
     if(list.length>=3)throw Error('Use up to three category levels.');
     const used=[...work.draft.rows,...work.draft.columns],field=button.dataset.field||builderCategoryFields().find(f=>f.type==='category'&&!used.includes(f.id))?.id||builderCategoryFields().find(f=>!used.includes(f.id))?.id;
     if(!field||used.includes(field))throw Error('Choose an unused category.');list.push(field);
+    // Adding from the list keeps focus in the list, on the group that took this one's place.
+    if(listPosition>-1)refocus=()=>{const rows=listRows(),next=rows[listPosition]||rows[listPosition-1]||$('#fields-search');next?.focus({preventScroll:true});next?.scrollIntoView?.({block:'nearest'});};
   }
   const fromMenu=!!button.closest('#builder-axis-menu');
-  renderBuilder();if(fromMenu)$(`[data-action="builder-focus-axis"][data-axis="${axis}"]`)?.focus({preventScroll:true});return true;
+  renderBuilder();if(fromMenu)$(`[data-action="builder-focus-axis"][data-axis="${axis}"]`)?.focus({preventScroll:true});else refocus?.();return true;
 }
 function builderInput(el){
   if(work?.kind!=='builder')return false;
@@ -1726,10 +1755,7 @@ function builderInput(el){
   if(el.id==='metric-search'){work.metricQuery=el.value;filterBuilderMeasurements();return true;}
   if(el.id==='builder-title'){builderPreview();return true;}
   if(el.dataset.builderAxisMenuSearch){$('#builder-axis-menu-list').innerHTML=builderAxisMenuOptions(el.dataset.builderAxisMenuSearch,el.value);el.removeAttribute('aria-activedescendant');return true;}
-  const axis=el.dataset.builderAxisSearch;if(!axis)return false;
-  const target=$(`[data-axis-results="${axis}"]`),query=el.value.trim().toLowerCase();target.hidden=!query;
-  const matches=builderAxisChoices(axis,query);
-  target.innerHTML=matches.length?matches.slice(0,20).map(f=>`<button data-action="add-axis-field" data-axis="${axis}" data-field="${esc(f.id)}"${work.draft[axis].length>=3?' disabled':''}><span>${esc(f.question?f.label:plainFieldLabel(f))}</span>${f.defined?'<small>Defined</small>':''}</button>`).join(''):'<p>No matching categories.</p>';return true;
+  return false;
 }
 function builderUseMeasurement(id){
   const d=work.draft;
@@ -1747,8 +1773,6 @@ function builderLockLastStatistic(){
 }
 function builderChange(el){
   if(work?.kind!=='builder')return false;
-  if(el.id==='builder-numeric-groups'){readBuilder();work.numericGroups=el.checked;renderBuilder();return true;}
-  if(el.dataset.builderAxis){readBuilder();work.draft[el.dataset.builderAxis][Number(el.dataset.index)]=el.value;renderBuilder();return true;}
   if(el.dataset.builderSource){
     work.sourceSelectionChanged=true;readBuilder();const d=work.draft,s=d.sources,id=el.dataset.builderSource;s.identifiers[id]??=defaultIdentifier(id);
     if(el.checked&&!d.periods.includes(id)&&!d.periods.includes('value'))d.periods.push(id);
