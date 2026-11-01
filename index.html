@@ -639,10 +639,16 @@ const allSourceIds=()=>dataSources().map(s=>s.id);
 const askedIn=(id,sources)=>sources.filter(src=>questionMap.get(id)?.fields[src]);
 function answersOf(r,id,sources=allSourceIds()){
   const q=questionMap.get(id);if(!q)return[];
+  if(sources.length===1&&!askedIn(id,sources).length){
+    // One survey that never asked the question uses the linked record's answer from a survey that did, as grouping does.
+    const from=askedIn(id,allSourceIds()).filter(src=>sourceRecord(r,src)),pick=from.find(src=>!blank(value(r,q.fields[src])))||from[0];
+    return pick?[{src:pick,value:value(r,q.fields[pick])}]:[];
+  }
   return askedIn(id,sources).filter(src=>sourceRecord(r,src)).map(src=>({src,value:value(r,q.fields[src])}));
 }
 const answerKey=v=>blank(v)?'':String(v).trim().toLocaleLowerCase();
-function testQuestion(r,c,sources){
+function testQuestion(r,c,sources,only){
+  if(only&&c.op!=='eqField')sources=[only];
   const answers=answersOf(r,c.field,sources),given=answers.map(a=>a.value).filter(v=>!blank(v)),hasBlank=given.length<answers.length||!answers.length;
   if(c.op==='eqField'){
     // Same question: the answer did not change across sources. Different questions: both agree within each source, and may change between sources.
@@ -665,9 +671,9 @@ function testQuestion(r,c,sources){
   }
   return false;
 }
-function testCondition(r,c,benchmarks,sources=allSourceIds()){
+function testCondition(r,c,benchmarks,sources=allSourceIds(),only){
   if(c.field===MIN_N_FIELD.id)return true;
-  if(questionMap.has(c.field))return testQuestion(r,c,sources);
+  if(questionMap.has(c.field))return testQuestion(r,c,sources,only);
   const v=value(r,c.field);
   if(c.op==='missing')return blank(v);
   if(c.op==='present')return !blank(v);
@@ -684,10 +690,10 @@ function testCondition(r,c,benchmarks,sources=allSourceIds()){
   if(!finite(n))return false;
   return c.op==='lt'?n<lo:c.op==='lte'?n<=lo:c.op==='gt'?n>lo:c.op==='gte'?n>=lo:c.op==='range'?n>=lo&&n<=hi:false;
 }
-function matches(r,node,benchmarks,sources){
-  if(node.kind!=='group')return testCondition(r,node,benchmarks,sources);
+function matches(r,node,benchmarks,sources,only){
+  if(node.kind!=='group')return testCondition(r,node,benchmarks,sources,only);
   if(!node.children.length)return true;
-  const result=node.mode==='any'?node.children.some(c=>matches(r,c,benchmarks,sources)):node.children.every(c=>matches(r,c,benchmarks,sources));
+  const result=node.mode==='any'?node.children.some(c=>matches(r,c,benchmarks,sources,only)):node.children.every(c=>matches(r,c,benchmarks,sources,only));
   return node.not?!result:result;
 }
 function leaves(node){return node.kind==='group'?node.children.flatMap(leaves):[node];}
@@ -719,7 +725,12 @@ function filterRecords(t){
     const groups=new Map();for(const r of eligible){const key=benchmarkKey(r,c);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(value(r,c.field));}
     benchmarks.set(c.id,new Map([...groups].map(([key,vals])=>{const med=median(vals);return[key,{median:med,cutoff:med===null||blank(c.value)?null:med*Number(c.value)/100,n:vals.filter(finite).length,cohort:vals.length}];})));
   }
-  return{all,eligible,included:eligible.filter(r=>matches(r,t.filters.measures,benchmarks,sources)),benchmarks};
+  const included=eligible.filter(r=>matches(r,t.filters.measures,benchmarks,sources));
+  // A question filter applies per survey: each survey's column keeps the records whose answer in that survey matches,
+  // so "Keep Onion" shows only Onion. The record list above keeps a record that matches in any survey, for counts and combined views.
+  const perSurvey=leaves(t.filters.source).some(c=>questionMap.has(c.field)&&c.op!=='eqField');
+  const passesIn=perSurvey?Object.fromEntries(sources.map(p=>[p,new Set(included.filter(r=>sourceRecord(r,p)&&matches(r,t.filters.source,null,sources,p)).map(r=>r.uid))])):null;
+  return{all,eligible,included,benchmarks,passesIn};
 }
 function validateFilters(filters){
   if(!filters||Object.keys(filters).sort().join(',')!=='measures,source')throw Error('Invalid filter sections.');
@@ -752,7 +763,7 @@ function validateFilters(filters){
     }check(root);
   }
 }
-function axisGroups(records,fields,t,axis){
+function axisGroups(records,fields,t,axis,passesIn=null){
   const perSource=fields.some(id=>questionMap.has(id)),map=new Map();
   const add=(r,path,period,assign)=>{
     const key=pathKey(path);if(!map.has(key))map.set(key,{key,path,label:pathLabel(path),records:[],...(perSource?{recordsBy:{}}:{})});
@@ -765,7 +776,7 @@ function axisGroups(records,fields,t,axis){
     const placed=new Set();
     for(const p of sourceSettings(t).ids){
       valuePeriod=p;
-      try{for(const r of records){if(!sourceRecord(r,p))continue;add(r,pathFor(r,fields),p,!placed.has(r.uid));placed.add(r.uid);}}finally{valuePeriod=null;}
+      try{for(const r of records){if(!sourceRecord(r,p)||passesIn?.[p]&&!passesIn[p].has(r.uid))continue;add(r,pathFor(r,fields),p,!placed.has(r.uid));placed.add(r.uid);}}finally{valuePeriod=null;}
     }
   }
   if(!fields.length&&!map.size)map.set('[]',{key:'[]',path:[],label:'All records',records:[]});
@@ -813,7 +824,7 @@ function cell(records,metric,col){
 }
 function calculate(t){
   const filtered=filterRecords(t),basis=t.areaCounts?filtered.eligible:filtered.included;
-  const rowsAll=axisGroups(basis,t.rows,t,'rows'),colsAll=axisGroups(basis,t.columns,t,'columns');
+  const passes=t.areaCounts?null:filtered.passesIn,rowsAll=axisGroups(basis,t.rows,t,'rows',passes),colsAll=axisGroups(basis,t.columns,t,'columns',passes);
   // Coverage uses the same cell before any table filters, including missing values.
   const recordsReduced=filtered.included.length<filtered.all.length;
   const coverageRows=recordsReduced?new Map(axisGroups(filtered.all,t.rows,t,'rows').map(g=>[g.key,g])):null;
@@ -823,8 +834,9 @@ function calculate(t){
   const result={...filtered,rowGroups:rowsAll,columnGroups:colsAll,headers:cols.flatMap(c=>descriptors(t).map(d=>({...d,group:c}))),rows:[]};
   for(const row of rows){for(const metric of t.metrics){
     result.rows.push({group:row,metric,cells:result.headers.map(c=>{
-      const found=columnMembers(row,c.group,c),eligible=found.all,pick=list=>list.filter(r=>included.has(r.uid)),members=pick(eligible);
-      const by=found.by&&Object.fromEntries(Object.entries(found.by).map(([p,list])=>[p,pick(list)]));
+      const found=columnMembers(row,c.group,c),eligible=found.all,inSurvey=(r,p)=>!passes?.[p]||passes[p].has(r.uid),pick=(list,ps=[])=>list.filter(r=>included.has(r.uid)&&ps.every(p=>inSurvey(r,p)));
+      const by=found.by?Object.fromEntries(Object.entries(found.by).map(([p,list])=>[p,pick(list,[p])])):passes&&c.period==='aggregate'?Object.fromEntries(c.sourceIds.map(p=>[p,pick(eligible,[p])])):null;
+      const members=by?unique(Object.values(by).flat()):pick(eligible,c.stat==='change'?[c.from,c.to]:c.period==='value'?[]:[c.period]);
       const data=by?aggregate(members,metric,'aggregate',c.stat,c.sourceIds,by):cell(members,metric,c);
       const before=recordsReduced&&coverageRows.get(row.key)&&coverageColumns.get(c.group.key)?columnMembers(coverageRows.get(row.key),coverageColumns.get(c.group.key),c):{all:[]};
       const totalRecords=recordsReduced&&c.stat!=='change'?aggregate(before.all,metric,c.period,'count',c.sourceIds,before.by).cohort:undefined;
@@ -1678,7 +1690,7 @@ for(const name of ['scroll','resize'])addEventListener(name,event=>{if($('#build
 function builderSkeletonHTML(draft){
   const t={...clone(draft),metrics:[]};t.merges||=[];t.hidden||={rows:[],columns:[]};
   const filtered=filterRecords(t),basis=t.areaCounts?filtered.eligible:filtered.included,limit={rows:40,columns:12};
-  const groupsFor=axis=>t[axis].length?axisGroups(basis,t[axis],t,axis).filter(g=>!(t.hidden[axis]||[]).includes(g.key)):[];
+  const groupsFor=axis=>t[axis].length?axisGroups(basis,t[axis],t,axis,t.areaCounts?null:filtered.passesIn).filter(g=>!(t.hidden[axis]||[]).includes(g.key)):[];
   const allRows=groupsFor('rows'),allColumns=groupsFor('columns'),rows=allRows.slice(0,limit.rows),columns=allColumns.slice(0,limit.columns);
   const path=(g,depth)=>g.path?.[depth]?.[1]??(g.path?.[depth]?'Blank':depth===0?(g.total?'Total':g.label):'');
   const prefix=(g,depth)=>JSON.stringify(g.path?.slice(0,depth+1).length?g.path.slice(0,depth+1):[g.key]);

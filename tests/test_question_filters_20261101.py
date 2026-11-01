@@ -169,6 +169,20 @@ class QuestionFilterTests(unittest.TestCase):
         self.assertEqual(p.evaluate('state.tables[0].filters.source.children.length'), 0)
         self.assertIn('Older filters on a single data source were removed', p.locator('#toast').inner_text())
 
+    def test_keep_filter_applies_per_survey(self):
+        result = self.page.evaluate("""(() => {
+          const t = clone(tableById('crops')); t.rows = ['q:crop']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          t.sources = sourceSettings(t); t.sources.records = 'all'; t.cohort = 'all';
+          t.filters = emptyFilters(); t.filters.source.children = [{kind: 'condition', id: 'k', field: 'q:crop', op: 'in', values: ['Onion'], includeBlank: false, value: '', high: '', refs: []}];
+          const d = calculate(t), b = d.headers.findIndex(h => h.period === 'b'), e = d.headers.findIndex(h => h.period === 'e');
+          const pool = recordPool(t), answer = (r, p, h) => r[p]?.values?.[h];
+          return {rows: d.rows.map(r => r.group.label), b: d.rows[0].cells[b].value, e: d.rows[0].cells[e].value,
+                  wantB: pool.filter(r => answer(r, 'b', 'Baseline Crop') === 'Onion').length, wantE: pool.filter(r => answer(r, 'e', 'Crop') === 'Onion').length};
+        })()""")
+        self.assertEqual(result['rows'], ['Onion'], 'Keeping Onion shows only Onion, not crops grown in the other survey')
+        self.assertEqual(result['b'], result['wantB'])
+        self.assertEqual(result['e'], result['wantE'])
+
     def test_filter_code_has_no_project_specific_names(self):
         sources = self.page.evaluate("""[answersOf, testQuestion, testCondition, matches, validateFilterSources, validateFilters, filterFields, filterChoices,
           filterSourceNote, filterSuggestedFields, filterSummary, renderCondition, filterChange, conditionText, searchFields].map(f => f.toString())""")
