@@ -131,7 +131,7 @@ class QuestionFilterTests(unittest.TestCase):
         page.locator('#field-results [role=option]').first.click()
         card = page.locator('.filter-condition').last
         self.assertEqual(card.locator('.filter-source-note').count(), 0, 'Asked everywhere, so no coverage note')
-        card.get_by_label('Same as another field', exact=True).check()
+        card.get_by_label('Match across data sources', exact=True).check()
         card = page.locator('.filter-condition').last
         self.assertEqual(card.get_by_label('Comparison field', exact=True).input_value(), 'q:water')
         self.assertEqual(card.locator('.condition-summary').inner_text(), 'Same answer in every data source')
@@ -154,7 +154,7 @@ class QuestionFilterTests(unittest.TestCase):
         page.evaluate('openFilters(state.tables[0].id)')
         self.assertEqual(page.evaluate('filterSuggestedFields().map(f => f.label)')[0], 'Water source')
         page.evaluate("addFilterField('q:water')")
-        page.get_by_label('Same as another field', exact=True).check()
+        page.get_by_label('Match across data sources', exact=True).check()
         page.get_by_label('Filter field', exact=True).select_option('q:head')
         self.assertEqual(page.evaluate('filterDraft.source.children[0]').get('otherField'), 'q:head')
         self.assertEqual(page.evaluate('filterDraft.source.children[0].op'), 'eqField')

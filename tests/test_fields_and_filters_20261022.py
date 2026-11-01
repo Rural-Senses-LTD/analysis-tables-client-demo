@@ -42,7 +42,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         p.evaluate('openFilters(state.tables[0].id)')
         self.add_filter('Crop')
         options = p.locator('.filter-mode label span').all_inner_texts()
-        self.assertEqual(options, ['Keep selected', 'Remove selected', 'Same as another field'])
+        self.assertEqual(options, ['Keep selected', 'Match across data sources'])
         self.assertEqual(p.locator('.filter-mode legend').inner_text(), 'Match answers')
 
     def test_equal_field_filter_still_matches_same_crop_after_rename(self):
@@ -51,7 +51,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         # The baseline column name still finds the shared question.
         self.add_filter('Baseline Crop')
         self.assertEqual(p.locator('.condition-title').last.inner_text(), 'Crop')
-        p.get_by_label('Same as another field', exact=True).check()
+        p.get_by_label('Match across data sources', exact=True).check()
         preview = p.locator('#filter-preview').inner_text()
         self.assertRegex(preview, r'^\d+ of \d+ records match')
 
@@ -126,10 +126,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         p = self.page
         p.evaluate('openFilters(state.tables[0].id)')
         self.assertIn('240', p.locator('#filter-result').inner_text())
-        chips = p.locator('.suggest-chip').all_inner_texts()
-        self.assertTrue(any(c.startswith('Crop') for c in chips) and any(c.startswith('Region') for c in chips))
-        self.assertFalse([c for c in chips if c.startswith(('Name', 'Farmer_UID', 'Match_', 'Outlier_'))])
-        p.locator('.suggest-chip', has_text='Region').first.click()
+        self.add_filter('Region')
         card = p.locator('.filter-condition').first
         self.assertEqual(card.locator('.condition-summary').inner_text(), 'All answers kept')
         # The result block stays in view while the panel scrolls.
@@ -163,11 +160,11 @@ class FieldsAndFiltersTests(unittest.TestCase):
         p = self.page
         p.evaluate('openFilters(state.tables[0].id)')
         self.add_filter('Crop')
-        p.get_by_label('Remove selected', exact=True).focus()
+        p.get_by_label('Match across data sources', exact=True).focus()
         p.keyboard.press('Space')
-        self.assertRegex(p.locator('.condition-summary').first.inner_text(), r'^(Nothing removed|Removing \d+ of \d+ answers)$')
-        self.assertTrue(p.get_by_label('Remove selected', exact=True).is_checked())
-        self.assertTrue(p.get_by_label('Remove selected', exact=True).evaluate('el => document.activeElement === el'))
+        self.assertEqual(p.locator('.condition-summary').first.inner_text(), 'Same answer in every data source')
+        self.assertTrue(p.get_by_label('Match across data sources', exact=True).is_checked())
+        self.assertTrue(p.get_by_label('Match across data sources', exact=True).evaluate('el => document.activeElement === el'))
 
     def test_picker_puts_data_quality_fields_last(self):
         p = self.page
@@ -204,7 +201,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
     def test_n_count_filter_screen_csv_and_persistence_agree(self):
         p = self.page
         p.evaluate("openFilters('region')")
-        p.locator('.suggest-chip', has_text='N count').click()
+        self.add_filter('N count')
         p.locator('[data-action="apply-filters"]').click()
         screen = p.locator('#table-region .cell-suppressed').count()
         self.assertGreater(screen, 0)
@@ -222,7 +219,6 @@ class FieldsAndFiltersTests(unittest.TestCase):
             message = p.evaluate("""(value) => { try { validateFilters({source: emptyGroupForTest(), measures: {kind: 'group', mode: 'all', children: [{kind: 'condition', id: 'x', field: 'n:count', op: 'gte', value, high: '', refs: [], values: []}]}}); return ''; } catch (e) { return e.message; } }""".replace('emptyGroupForTest()', "{kind: 'group', mode: 'all', children: []}"), bad)
             self.assertIn('whole number', message, bad)
         p.evaluate('openFilters(state.tables[0].id)')
-        self.assertIn('N count', p.locator('.suggest-row').inner_text())
         p.locator('[data-action="toggle-filter-picker"]').first.click()
         options = p.locator('#field-results [role=option]').all_inner_texts()
         index = next(i for i, o in enumerate(options) if o.startswith('N count'))
