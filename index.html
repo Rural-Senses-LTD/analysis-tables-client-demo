@@ -402,7 +402,9 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
 .builder-preview-panel .builder-preview-summary{margin-bottom:14px}
 .builder-axis-menu{position:fixed;z-index:30;width:250px;max-width:min(92vw,320px);box-sizing:border-box;padding:8px;border:1px solid #cbdacf;border-radius:12px;background:white;box-shadow:0 12px 28px #18342226}.builder-axis-menu input{width:100%;box-sizing:border-box;font-size:13px;padding:9px 11px;border-radius:9px}.builder-axis-menu [role=listbox]{max-height:240px;overflow:auto;margin-top:6px}.builder-axis-menu [role=option]{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;border-radius:8px;background:none;padding:9px 10px;text-align:left;font-size:13px;color:var(--ink);cursor:pointer}.builder-axis-menu [role=option]:hover,.builder-axis-menu [role=option][aria-selected=true]{background:#eef5ea}.builder-axis-menu [role=option] span{min-width:0;white-space:normal;overflow-wrap:anywhere}.builder-axis-menu [role=option] small{color:#6b7f70}.builder-axis-menu .help{margin:8px 4px;font-size:12px}.preview-add-axis-button.is-full,.preview-add-axis-button.is-full:hover{background:#f3f4f2;color:#97a299;border-color:#c9cfc9;border-style:dashed;cursor:not-allowed}@media(max-width:480px){.builder-axis-menu{width:min(92vw,320px)}}
 .preview-add-axis{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}.preview-add-axis-button{min-height:26px;padding:3px 9px;border:1px dashed #6f9a72;border-radius:999px;background:#f4f9f1;color:#2f5f3a;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}.preview-add-axis-button:hover{background:#e3f0dd;border-style:solid}.preview-add-axis-button:focus-visible{outline:2px solid #2f664c;outline-offset:2px}.skeleton-axis-label{display:block}#builder-preview th:has(>.preview-add-axis){text-align:left;vertical-align:top}
-.builder-skeleton-intro{display:flex;justify-content:space-between;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;border-radius:10px;background:#f4f9f1;border:1px solid #d6e6cf}.builder-skeleton-intro strong{font-size:14px;color:#2f5f3a}.builder-skeleton-intro p{margin:3px 0 0;font-size:12px;color:#536b5b;line-height:1.5}
+.change-info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin:0 0 0 5px;padding:0;border:1px solid #a9bfae;border-radius:50%;background:white;color:#3d6249;font:italic 700 10px/1 Georgia,serif;vertical-align:-3px;cursor:help}.change-info:hover,.change-info:focus-visible{background:#eef5ea;border-color:#5f8b68}.change-info:focus-visible{outline:2px solid #2f664c;outline-offset:1px}
+.change-tooltip{position:fixed;z-index:40;max-width:min(260px,calc(100vw - 16px));box-sizing:border-box;padding:8px 10px;border-radius:8px;background:#1f3a2c;color:white;font-size:12px;font-weight:500;line-height:1.45;text-align:left;white-space:normal;box-shadow:0 8px 20px #18342233;pointer-events:none}@media print{.change-info,.change-tooltip{display:none!important}}
+.builder-preview-panel>.builder-preview-heading{font-size:15px;letter-spacing:0;margin:0 0 10px;color:#1f3a2c}.preview-add-measurement-cell{text-align:right!important}.preview-add-measurement-cell .preview-add-measurement{display:block;width:max-content;margin:0 0 0 auto}.preview-add-measurement-cell .cell-button+.preview-add-measurement{margin-top:6px}
 .builder-skeleton .skeleton-cell span{display:block;height:9px;width:46px;margin:0 auto;border-radius:6px;background:#e6ede2}.builder-skeleton .skeleton-hint{color:#5d7a60;font-style:italic;font-weight:500;outline:1px dashed #a9c3a5;outline-offset:-4px;background:#fafcf8}
 .builder-measurements #metric-options{max-height:210px}
 .builder-sources .builder-comparison-sub{overflow-wrap:anywhere}
@@ -1081,11 +1083,13 @@ function matrixHTML(t,data,preview=false,builder=false){
   }
   if(showSources){
     let periods='';
-    for(let i=0;i<columns.length;){let end=i+1;while(end<columns.length&&columns[end].group.key===columns[i].group.key&&periodLabel(columns[end])===periodLabel(columns[i]))end++;periods+=`<th scope="${end-i>1?'colgroup':'col'}" colspan="${end-i}" class="source-heading">${esc(periodLabel(columns[i]))}</th>`;i=end;}
+    let changeInfo=!preview||builder;
+    for(let i=0;i<columns.length;){let end=i+1;while(end<columns.length&&columns[end].group.key===columns[i].group.key&&periodLabel(columns[end])===periodLabel(columns[i]))end++;const info=changeInfo&&columns[i].stat==='change';if(info)changeInfo=false;periods+=`<th scope="${end-i>1?'colgroup':'col'}" colspan="${end-i}" class="source-heading">${esc(periodLabel(columns[i]))}${info?changeInfoHTML():''}</th>`;i=end;}
     head+=`<tr>${columnDepth===0?leftHeaders:''}${periods}</tr>`;
   }
   if(showStatistics)head+=`<tr>${!columnDepth&&!showSources?leftHeaders:''}${columns.map(h=>`<th scope="col" class="stat-heading">${esc(statLabel(h))}</th>`).join('')}</tr>`;
   let body='';
+  const lastMetric=builder?[...t.metrics].reverse().find(metric=>data.rows.some(r=>r.metric===metric)):undefined;
   for(const metric of t.metrics){
     body+='<tbody>';
     const metricRows=data.rows.map((r,index)=>({...r,index})).filter(r=>r.metric===metric),m=metricInfo(metric)||{label:metric,unit:''},precision=m.unit==='ha'?3:1;
@@ -1098,20 +1102,45 @@ function matrixHTML(t,data,preview=false,builder=false){
         let end=i+1;while(end<metricRows.length&&prefix(metricRows[end].group,depth)===prefix(r.group,depth))end++;
         rowHeaders+=`<th scope="row" rowspan="${end-i}" class="category-cell category-level-${depth} row-axis-header"${preview?` draggable="true" data-preview-axis="rows" data-index="${depth}"`: ''} style="--row-header-offset:calc(var(--matrix-row-width,144px) * ${depth})"><div class="header-label"><span>${esc(path(r.group,depth))}${r.group.merged&&depth===t.rows.length-1?'<small>Merged</small>':''}</span>${headerMenu(t,'rows',metricRows.slice(i,end).map(row=>row.group),r.group.path?.slice(0,depth+1)||[],preview)}</div></th>`;
       }
-      body+=`<tr class="${r.group.total?'total':''}" data-row-group="${esc(r.group.key)}">${rowHeaders}${columns.map(h=>{
+      const addHere=metric===lastMetric&&i===metricRows.length-1;
+      body+=`<tr class="${r.group.total?'total':''}" data-row-group="${esc(r.group.key)}">${rowHeaders}${columns.map((h,ci)=>{
         const c=r.cells[h.index],n=c.stat==='change'?c.cohort:['count','n'].includes(c.stat)?c.value:c.n;
         const formatted=`${c.stat==='change'&&c.value>0?'+':''}${fmt(c.value,['n','count'].includes(c.stat)?0:c.stat==='change'?1:precision)}${c.stat==='change'&&c.value!==null?'%':''}`;
         const count=['count','n'].includes(c.stat),unit=Number.isFinite(c.value)&&c.stat!=='change'?(count?'records':m.unit):'';
-        return `<td><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,c.suppressedN?'hidden, fewer than '+c.suppressedN+' valid records':formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value${c.suppressedN?' cell-suppressed':''}"><span>${c.suppressedN?`N&lt;${c.suppressedN}`:formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${cellSampleHTML(t,metric,h,c,data)}</button></td>`;
+        const add=addHere&&ci===columns.length-1;
+        return `<td${add?' class="preview-add-measurement-cell"':''}><button class="cell-button ${c.stat==='change'?'change':''}" ${preview?'disabled':`data-action="cell" data-table="${t.id}" data-row="${r.index}" data-col="${h.index}"`} aria-label="${esc([r.group.label,m.label,h.label,c.suppressedN?'hidden, fewer than '+c.suppressedN+' valid records':formatted+(unit?' '+unit:'')].join(' · '))}"><span class="cell-value${c.suppressedN?' cell-suppressed':''}"><span>${c.suppressedN?`N&lt;${c.suppressedN}`:formatted}</span>${unit?` <span class="cell-unit">${esc(unit)}</span>`:''}</span>${cellSampleHTML(t,metric,h,c,data)}</button>${add?builderAddMeasurementHTML():''}</td>`;
       }).join('')}</tr>`;
     }
     body+='</tbody>';
   }
-  const perSourceGrouping=[...t.rows,...t.columns].some(id=>questionMap.has(id))&&sourceSettings(t).ids.length>1&&(sourceSettings(t).mode==='aggregate'||descriptorsForTable.some(h=>h.stat==='change'));
-  const context=(perSourceGrouping?`<span class="matrix-statistic"><span class="context-label">Grouping</span><strong>Each source column uses its own answers. Combined columns count each source under its own answer. Change columns include only records with the same answer in both sources.</strong></span>`:'')+(preview?sourceSummaryHTML(t,data,false):'')+(sharedStatistic&&!showStatistics?`<span class="matrix-statistic"><span class="context-label">Statistic</span><strong>${esc(sharedStatistic)}</strong></span>`:'');
+  const context=(preview?sourceSummaryHTML(t,data,false):'')+(sharedStatistic&&!showStatistics?`<span class="matrix-statistic"><span class="context-label">Statistic</span><strong>${esc(sharedStatistic)}</strong></span>`:'');
   const rowColumns=Array.from({length:rowDepth},()=>'<col class="row-axis-column">').join('');
   return `${context?`<div class="matrix-context">${context}</div>`:''}<div class="matrix-scroll" id="${preview?'preview-':''}matrix-${esc(t.id)}" tabindex="0" role="region" aria-label="${esc(t.title)} table"><table class="matrix" style="--matrix-row-count:${rowDepth};--matrix-value-count:${columns.length}"><caption class="sr">${esc([t.title,sourceNote(t),sharedStatistic].filter(Boolean).join(' · '))}</caption><colgroup>${rowColumns}${columns.map(()=>'<col class="value-column">').join('')}</colgroup><thead>${head}</thead>${body}</table></div>`;
 }
+// The "i" next to a change heading explains which records a change column compares.
+// One tooltip at a time, fixed to the viewport so the scrolling table never clips it; shown on hover and focus, Escape dismisses.
+const changeInfoText='Change compares only records with the same answer in both sources.';
+function changeInfoHTML(){return `<button type="button" class="change-info" aria-label="About change" aria-description="${changeInfoText}" draggable="false">i</button>`;}
+let changeInfoButton=null;
+function hideChangeInfo(){$('#change-tooltip')?.remove();changeInfoButton=null;}
+function positionChangeInfo(){
+  const tip=$('#change-tooltip');if(!tip)return;if(!changeInfoButton?.isConnected){hideChangeInfo();return;}
+  const r=changeInfoButton.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight,below=r.bottom+6+h<=innerHeight-8;
+  tip.style.left=Math.max(8,Math.min(r.left+r.width/2-w/2,innerWidth-w-8))+'px';tip.style.top=Math.max(8,below?r.bottom+6:r.top-h-6)+'px';
+}
+function showChangeInfo(button){
+  if(changeInfoButton===button&&$('#change-tooltip'))return;hideChangeInfo();
+  const tip=document.createElement('div');tip.id='change-tooltip';tip.className='change-tooltip';tip.setAttribute('role','tooltip');tip.textContent=changeInfoText;
+  // A modal dialog or fullscreen table sits in the top layer, so the tooltip joins it there.
+  (button.closest('dialog')||document.fullscreenElement||document.body).append(tip);changeInfoButton=button;positionChangeInfo();
+}
+document.addEventListener('mouseover',event=>{const button=event.target.closest?.('.change-info');if(button)showChangeInfo(button);});
+document.addEventListener('mouseout',event=>{const button=event.target.closest?.('.change-info');if(button&&button===changeInfoButton&&!button.contains(event.relatedTarget)&&document.activeElement!==button)hideChangeInfo();});
+document.addEventListener('focusin',event=>{const button=event.target.closest?.('.change-info');if(button)showChangeInfo(button);});
+document.addEventListener('focusout',event=>{if(event.target.closest?.('.change-info'))hideChangeInfo();});
+document.addEventListener('click',event=>{const button=event.target.closest?.('.change-info');if(button)showChangeInfo(button);});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#change-tooltip')){event.preventDefault();event.stopPropagation();hideChangeInfo();}},true);
+for(const name of ['scroll','resize'])addEventListener(name,()=>{if($('#change-tooltip'))positionChangeInfo();},true);
 function visibleTables(){return state.tables.filter(t=>!t.archived);}
 function render(focusId){
   const tables=visibleTables();$('#tables').innerHTML=tables.length?tables.map(tableHTML).join(''):'<div class="empty"><strong>No active tables</strong>Create a table or restore one from the archive.</div>';renderNav();
@@ -1529,15 +1558,19 @@ function dataSourcesEditor(d){
   const s=d.sources,selectedSources=dataSources().filter(x=>s.ids.includes(x.id)),countOnly=d.metrics.length===1&&d.metrics[0]==='count';
   return `<details class="builder-sources builder-section builder-panel" data-builder-panel="sources"${work.panels.sources?' open':''}><summary><span>Data sources &amp; comparison</span><small>${esc(s.ids.map(sourceName).join(' + ')||'Choose a source')}${d.change?' · '+esc(changeStatisticLabel(d.changeStat??'mean')):''}</small></summary><div class="builder-panel-content"><div class="section-heading"><div><h3>Data sources</h3><p class="help">Choose the records behind your table.</p></div><span class="builder-section-icon"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4NCiAgICA8cGF0aA0KICAgICAgZD0iTTEyIDJDOC4xMyAyIDUgMy4zNCA1IDVWMTlDNSAyMC42NiA4LjEzIDIyIDEyIDIyQzE1Ljg3IDIyIDE5IDIwLjY2IDE5IDE5VjVDMTkgMy4zNCAxNS44NyAyIDEyIDJaTTE3IDE5QzE3IDE5LjU1IDE0Ljg3IDIwIDEyIDIwQzkuMTMgMjAgNyAxOS41NSA3IDE5VjE3Ljc3QzguNjEgMTguNTUgMTAuMjggMTguNSAxMiAxOC41QzEzLjcyIDE4LjUgMTUuMzkgMTguNTUgMTcgMTcuNzdWMTlaTTE3IDE1LjQ1QzE1LjkgMTYuMTYgMTMuOTcgMTYuNSAxMiAxNi41QzEwLjAzIDE2LjUgOC4xIDE2LjE2IDcgMTUuNDVWMTIuNzdDOC42MSAxMy41NSAxMC4yOCAxMy41IDEyIDEzLjVDMTMuNzIgMTMuNSAxNS4zOSAxMy41NSAxNyAxMi43N1YxNS40NVpNMTcgMTAuNDVDMTUuOSAxMS4xNiAxMy45NyAxMS41IDEyIDExLjVDMTAuMDMgMTEuNSA4LjEgMTEuMTYgNyAxMC40NVY3Ljc3QzguNjEgOC41NSAxMC4yOCA4LjUgMTIgOC41QzEzLjcyIDguNSAxNS4zOSA4LjU1IDE3IDcuNzdWMTAuNDVaTTEyIDYuNUM5LjEzIDYuNSA3IDYuMDUgNyA1LjVDNyA0Ljk1IDkuMTMgNC41IDEyIDQuNUMxNC44NyA0LjUgMTcgNC45NSAxNyA1LjVDMTcgNi4wNSAxNC44NyA2LjUgMTIgNi41WiINCiAgICAgIGZpbGw9IiM0OTgyNjQiDQogICAgLz4NCiAgPC9zdmc+" alt=""></span></div>${work.id&&s.mode==='separate'&&!countOnly&&s.ids.some(id=>!d.periods.includes(id))?`<p class="builder-source-note">This saved table shows ${esc(d.periods.filter(id=>id!=='value').map(sourceName).join(', ')||'calculated values')}. Changing its source selection will show results for every selected source.</p>`:''}<div class="builder-source-toolbar"><input id="builder-source-search" type="search" placeholder="Search data sources…" aria-label="Search data sources" value="${esc(work.sourceQuery||'')}"><span>${s.ids.length} of ${dataSources().length} selected</span></div><div class="selection-grid source-selection" aria-label="Available data sources">${dataSources().map(source=>`<label class="source-choice" data-source-label="${esc(source.label.toLowerCase())}"><input type="checkbox" data-builder-source="${esc(source.id)}"${checked(s.ids.includes(source.id))}><strong>${esc(source.label)}</strong><small>${source.records.length} records</small></label>`).join('')}</div><p id="builder-source-empty" class="help" hidden>No data sources match your search.</p>${selectedSources.length>1?`<details class="builder-comparison"><summary>Advanced comparison settings<span>${s.mode==='aggregate'?'Combined sources':'Side by side'}${s.records==='matched'?' · Matched only':''}${d.change?' · Change column':''}</span></summary><div class="form-grid"><label class="field"><span>Show data sources</span><select id="builder-source-mode"><option value="separate"${selected(s.mode,'separate')}>Side by side: one column per source</option><option value="aggregate"${selected(s.mode,'aggregate')}>Combined: pool all sources into one result</option></select></label><label class="field"><span>Records to include</span><select id="builder-source-records"><option value="all"${selected(s.records,'all')}>All records</option><option value="matched"${selected(s.records,'matched')}>Matched records only</option></select></label></div><div class="builder-comparison-sub"><span class="comparison-subheading">Identifier questions</span><div class="form-grid">${selectedSources.map(source=>`<label class="field"><span>${esc(source.label)} identifier question</span><select data-builder-identifier="${esc(source.id)}" aria-label="${esc(source.label)} identifier question">${builderFieldOptions(catalogue().filter(f=>f.period===source.id&&!f.defined),s.identifiers[source.id])}</select></label>`).join('')}</div><p class="help">Match identifier values as text after trimming spaces; matching is case-sensitive. Missing or duplicate identifiers stay separate with “All records” and are excluded from matched records. Combined results pool observations from the selected sources.</p></div>${s.mode==='separate'&&countOnly?`<label class="field"><span>Record counts</span><select id="builder-count-mode"><option value="source"${selected(d.countMode||(d.periods.includes('value')?'linked':'source'),'source')}>Per data source</option><option value="linked"${selected(d.countMode||(d.periods.includes('value')?'linked':'source'),'linked')}>Count linked records once</option></select></label>`:''}${!countOnly?`<label class="check-label"><input type="checkbox" data-builder-bool="change"${checked(d.change)}>Add a “change” column</label>${d.change?`<label class="field"><span>Calculate % change using</span><select id="builder-change-stat"><option value="">Choose a calculation</option>${['mean','median','sum'].map(stat=>`<option value="${stat}"${selected(d.changeStat??'mean',stat)}>${stat==='sum'?'Sum':stat==='median'?'Median':'Mean'} in each source</option>`).join('')}</select></label><p class="help">(After / before - 1) × 100. Each source uses its available values.</p><div class="form-grid"><label class="field"><span>Change from</span><select id="builder-change-from">${selectedSources.map(source=>`<option value="${esc(source.id)}"${selected(s.changeFrom,source.id)}>${esc(source.label)}</option>`).join('')}</select></label><label class="field"><span>Change to</span><select id="builder-change-to">${selectedSources.map(source=>`<option value="${esc(source.id)}"${selected(s.changeTo,source.id)}>${esc(source.label)}</option>`).join('')}</select></label></div>`:''}`:''}</details>`:''}</div></details>`;
 }
+// Every measurement the builder offers: record count, project measurements, then numeric survey questions not already covered by a project measurement.
+function builderMetricChoices(d){
+  const covered=new Set(baseMetrics.flatMap(m=>m.b?['b:'+m.b,'e:'+m.e,...(m.area?['b:Land Size Ha','e:Size of Land (Ha)']:[])]:[]));
+  return [metricInfo('count'),...baseMetrics.map(m=>metricInfo(m.id)),...catalogue().filter(f=>f.type==='number'&&!f.id.startsWith('m:')&&(!covered.has(f.id)||d.metrics.includes(f.id))&&(fieldAvailableInBuilder(f)||d.metrics.includes(f.id)))];
+}
 function renderBuilder(){
   closeBuilderAxisMenu();
   const d=work.draft;d.sources=sourceSettings(d);builderSyncPeriods(d);work.panels||={measurements:false,groups:false,sources:false};
   const oldSettings=$('.builder-settings'),scrollTop=oldSettings?.scrollTop||work.settingsScroll||0,canvasScroll=$('.builder-preview-panel')?.scrollTop||work.canvasScroll||0;
   $$('[data-builder-panel]').forEach(el=>work.panels[el.dataset.builderPanel]=el.open);
   const comparisonOpen=$('.builder-comparison')?.open,active=document.activeElement,focus=active?.closest('#work-dialog')?{id:active.id,action:active.dataset.action,axis:active.dataset.axis,index:active.dataset.index,dir:active.dataset.direction,metric:active.dataset.builderMetric,source:active.dataset.builderSource}:null;
-  const covered=new Set(baseMetrics.flatMap(m=>m.b?['b:'+m.b,'e:'+m.e,...(m.area?['b:Land Size Ha','e:Size of Land (Ha)']:[])]:[]));
-  const metrics=[metricInfo('count'),...baseMetrics.map(m=>metricInfo(m.id)),...catalogue().filter(f=>f.type==='number'&&!f.id.startsWith('m:')&&(!covered.has(f.id)||d.metrics.includes(f.id))&&(fieldAvailableInBuilder(f)||d.metrics.includes(f.id)))];
-  const body=`<div class="builder-layout"><div class="builder-settings"><h3 class="builder-heading">Build your table.</h3><label class="field builder-name"><span>Table title</span><input id="builder-title" value="${esc(d.title)}" maxlength="100" placeholder="Give your table a title"></label>${builderMeasurementsHTML(d,metrics)}${fieldsBrowserHTML(d)}${dataSourcesEditor(d)}</div><aside class="builder-preview-panel" aria-label="Table preview" tabindex="-1"><h3 id="builder-preview-title" hidden>${esc(d.title)}</h3><div id="builder-preview-summary" class="builder-preview-summary" hidden></div><div id="builder-preview" class="preview" aria-live="polite"></div></aside></div>`;
+  const metrics=builderMetricChoices(d);
+  const body=`<div class="builder-layout"><div class="builder-settings"><h3 class="builder-heading">Build your table.</h3><label class="field builder-name"><span>Table title</span><input id="builder-title" value="${esc(d.title)}" maxlength="100" placeholder="Give your table a title"></label>${builderMeasurementsHTML(d,metrics)}${fieldsBrowserHTML(d)}${dataSourcesEditor(d)}</div><aside class="builder-preview-panel" aria-labelledby="builder-preview-heading" tabindex="-1"><h3 id="builder-preview-heading" class="builder-preview-heading">Table preview</h3><h3 id="builder-preview-title" hidden>${esc(d.title)}</h3><div id="builder-preview-summary" class="builder-preview-summary" hidden></div><div id="builder-preview" class="preview" aria-live="polite"></div></aside></div>`;
   modal(work.id?'Edit table':'Create table',body,`<button class="text-button builder-preview-jump" data-action="builder-jump-preview">See table preview</button><button data-action="close-work">Cancel</button><button class="primary" data-action="apply-builder">${work.id?'Save changes':'Create table'}</button>`);
   $('.builder-settings').scrollTop=scrollTop;$('.builder-preview-panel').scrollTop=canvasScroll;
   if(comparisonOpen!==undefined&&$('.builder-comparison'))$('.builder-comparison').open=comparisonOpen;
@@ -1578,27 +1611,35 @@ function builderCandidate(){
   const original=tableById(work.id),structure=t=>JSON.stringify([t.rows,t.columns,t.metrics,t.periods,sourceSettings(t)]);
   if(!original||structure(d)!==structure(original)){d.merges=[];d.hidden={rows:[],columns:[]};}for(const chart of [d.chart,...(d.charts||[])]){if(chart.metric&&!d.metrics.includes(chart.metric))chart.metric=d.metrics[0];if(chart.rowLevel&&!d.rows.includes(chart.rowLevel))chart.rowLevel=d.rows[0]||'';if(chart.column>=descriptors(d).length)chart.column=0;}return d;
 }
-// "+ Column" / "+ Row" in the preview's top-left cell: a shortcut to the group search for that axis. Builder preview only.
-// "+ Column" / "+ Row" open a group menu at the button, so a group is added next to the table it changes. A full axis explains why on hover.
+// "+ Column" / "+ Row" in the preview's top-left cell and "+ Measurement" in its bottom-right cell open one shared menu at the button. Builder preview only.
+// The menu's kind is the axis ('rows' or 'columns') or 'measurements'; a full axis explains why on hover.
 const axisFullText=axis=>`${axis==='rows'?'Rows':'Columns'} can have up to 3 groups. Remove one in Groups first.`;
-function builderAddAxisHTML(){return `<span class="preview-add-axis">${[['columns','Column'],['rows','Row']].map(([axis,name])=>{const full=(work?.draft?.[axis]?.length||0)>=3;return `<button type="button" class="preview-add-axis-button${full?' is-full':''}" data-action="builder-focus-axis" data-axis="${axis}" draggable="false" aria-haspopup="dialog" aria-expanded="false"${full?` aria-disabled="true" title="${axisFullText(axis)}" aria-description="${axisFullText(axis)}"`:` title="Add a ${name.toLowerCase()} group"`}>+ ${name}</button>`;}).join('')}</span>`;}
+function builderAddAxisHTML(){return `<span class="preview-add-axis">${[['columns','Column'],['rows','Row']].map(([axis,name])=>{const full=(work?.draft?.[axis]?.length||0)>=3;return `<button type="button" class="preview-add-axis-button${full?' is-full':''}" data-action="builder-focus-axis" data-axis="${axis}" data-builder-menu="${axis}" draggable="false" aria-haspopup="dialog" aria-expanded="false"${full?` aria-disabled="true" title="${axisFullText(axis)}" aria-description="${axisFullText(axis)}"`:` title="Add a ${name.toLowerCase()} group"`}>+ ${name}</button>`;}).join('')}</span>`;}
+function builderAddMeasurementHTML(){return `<button type="button" class="preview-add-axis-button preview-add-measurement" data-action="builder-add-measurement" data-builder-menu="measurements" draggable="false" aria-haspopup="dialog" aria-expanded="false" title="Add a measurement">+ Measurement</button>`;}
 function builderAxisChoices(axis,query=''){const used=[...work.draft.rows,...work.draft.columns],q=String(query).trim().toLowerCase();return builderCategoryFields().filter(f=>!used.includes(f.id)&&(f.label+' '+(f.sourceLabel||'')).toLowerCase().includes(q));}
-function builderAxisMenuOptions(axis,query){const choices=builderAxisChoices(axis,query);return choices.length?choices.map((f,i)=>`<button type="button" role="option" id="axis-menu-option-${i}" aria-selected="false" tabindex="-1" data-action="add-axis-field" data-axis="${axis}" data-field="${esc(f.id)}"><span>${esc(f.question?f.label:plainFieldLabel(f))}</span>${f.defined?'<small>Defined</small>':''}</button>`).join(''):'<p class="help">No matching groups.</p>';}
+const builderMeasurementName=m=>m.id==='count'?'Number of respondents':m.label;
+function builderMeasurementChoices(query=''){const d=work.draft,q=String(query).trim().toLowerCase();return builderMetricChoices(d).filter(m=>m&&!d.metrics.includes(m.id)&&fieldAvailableInBuilder(m)&&(builderMeasurementName(m)+' '+(m.unit||'')).toLowerCase().includes(q));}
+function builderAxisMenuOptions(axis,query){
+  if(axis==='measurements'){const choices=builderMeasurementChoices(query);return choices.length?choices.map((m,i)=>`<button type="button" role="option" id="axis-menu-option-${i}" aria-selected="false" tabindex="-1" data-action="add-measurement-field" data-field="${esc(m.id)}"><span>${esc(builderMeasurementName(m))}</span><small>${esc(m.id==='count'?'Count only':m.unit||'Number')}</small></button>`).join(''):'<p class="help">No matching measurements.</p>';}
+  const choices=builderAxisChoices(axis,query);return choices.length?choices.map((f,i)=>`<button type="button" role="option" id="axis-menu-option-${i}" aria-selected="false" tabindex="-1" data-action="add-axis-field" data-axis="${axis}" data-field="${esc(f.id)}"><span>${esc(f.question?f.label:plainFieldLabel(f))}</span>${f.defined?'<small>Defined</small>':''}</button>`).join(''):'<p class="help">No matching groups.</p>';
+}
+const builderMenuButton=kind=>$(`[data-builder-menu="${kind}"]`);
 function positionBuilderAxisMenu(){
-  const menu=$('#builder-axis-menu'),button=menu&&$(`[data-action="builder-focus-axis"][data-axis="${menu.dataset.axis}"]`);if(!button)return;
+  const menu=$('#builder-axis-menu'),button=menu&&builderMenuButton(menu.dataset.kind);if(!button)return;
   const r=button.getBoundingClientRect(),w=menu.offsetWidth,h=menu.offsetHeight,below=r.bottom+6+h<=innerHeight-8||r.top<h+14;
-  menu.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';menu.style.top=Math.max(8,below?Math.min(r.bottom+6,innerHeight-h-8):r.top-h-6)+'px';
+  // The measurement button sits at the table's right edge, so its menu lines up with the button's right side.
+  menu.style.left=Math.max(8,Math.min(menu.dataset.kind==='measurements'?r.right-w:r.left,innerWidth-w-8))+'px';menu.style.top=Math.max(8,below?Math.min(r.bottom+6,innerHeight-h-8):r.top-h-6)+'px';
 }
 function closeBuilderAxisMenu(refocus=false){
-  const menu=$('#builder-axis-menu');if(!menu)return;const axis=menu.dataset.axis;menu.remove();
-  const button=$(`[data-action="builder-focus-axis"][data-axis="${axis}"]`);button?.setAttribute('aria-expanded','false');if(refocus)button?.focus({preventScroll:true});
+  const menu=$('#builder-axis-menu');if(!menu)return;const kind=menu.dataset.kind;menu.remove();
+  const button=builderMenuButton(kind);button?.setAttribute('aria-expanded','false');if(refocus)button?.focus({preventScroll:true});
 }
 function toggleBuilderAxisMenu(button){
-  const axis=button.dataset.axis==='columns'?'columns':'rows',open=$('#builder-axis-menu')?.dataset.axis;
-  closeBuilderAxisMenu();if(open===axis||button.getAttribute('aria-disabled')==='true')return;
-  const name=axis==='rows'?'row':'column',menu=document.createElement('div');
-  menu.id='builder-axis-menu';menu.className='builder-axis-menu';menu.dataset.axis=axis;menu.setAttribute('role','dialog');menu.setAttribute('aria-label',`Add a ${name} group`);
-  menu.innerHTML=`<input type="search" data-builder-axis-menu-search="${axis}" role="combobox" aria-expanded="true" aria-controls="builder-axis-menu-list" aria-autocomplete="list" autocomplete="off" placeholder="Search groups" aria-label="Search ${name} groups"><div id="builder-axis-menu-list" role="listbox" aria-label="${axis==='rows'?'Row':'Column'} groups">${builderAxisMenuOptions(axis,'')}</div>`;
+  const kind=['rows','columns','measurements'].includes(button.dataset.builderMenu)?button.dataset.builderMenu:'rows',open=$('#builder-axis-menu')?.dataset.kind;
+  closeBuilderAxisMenu();if(open===kind||button.getAttribute('aria-disabled')==='true')return;
+  const measurements=kind==='measurements',name=kind==='rows'?'row':'column',menu=document.createElement('div');
+  menu.id='builder-axis-menu';menu.className='builder-axis-menu';menu.dataset.kind=kind;menu.setAttribute('role','dialog');menu.setAttribute('aria-label',measurements?'Add a measurement':`Add a ${name} group`);
+  menu.innerHTML=`<input type="search" data-builder-axis-menu-search="${kind}" role="combobox" aria-expanded="true" aria-controls="builder-axis-menu-list" aria-autocomplete="list" autocomplete="off" placeholder="${measurements?'Search measurements':'Search groups'}" aria-label="${measurements?'Search measurements':`Search ${name} groups`}"><div id="builder-axis-menu-list" role="listbox" aria-label="${measurements?'Measurements':`${kind==='rows'?'Row':'Column'} groups`}">${builderAxisMenuOptions(kind,'')}</div>`;
   $('#work-dialog').append(menu);button.setAttribute('aria-expanded','true');positionBuilderAxisMenu();$('input',menu).focus({preventScroll:true});
 }
 document.addEventListener('keydown',event=>{
@@ -1611,7 +1652,7 @@ document.addEventListener('keydown',event=>{
   const next=current<0?(event.key==='ArrowDown'?0:options.length-1):(current+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;
   options.forEach((o,i)=>o.setAttribute('aria-selected',String(i===next)));input.setAttribute('aria-activedescendant',options[next].id);options[next].scrollIntoView({block:'nearest'});
 },true);
-document.addEventListener('pointerdown',event=>{if($('#builder-axis-menu')&&!event.target.closest('#builder-axis-menu,[data-action="builder-focus-axis"]'))closeBuilderAxisMenu();});
+document.addEventListener('pointerdown',event=>{if($('#builder-axis-menu')&&!event.target.closest('#builder-axis-menu,[data-builder-menu]'))closeBuilderAxisMenu();});
 for(const name of ['scroll','resize'])addEventListener(name,event=>{if($('#builder-axis-menu')&&!event.target?.closest?.('#builder-axis-menu'))positionBuilderAxisMenu();},true);
 // Before a measurement is chosen, show the table's real shape: the chosen row and column group values with empty value cells.
 // Groups come from the same filters and grouping as the finished table, calculated on a copy so the draft is never changed.
@@ -1632,9 +1673,11 @@ function builderSkeletonHTML(draft){
     for(let i=0;i<columns.length;){let end=i+1;while(end<columns.length&&prefix(columns[end],depth)===prefix(columns[i],depth))end++;cells+=`<th scope="colgroup" colspan="${end-i}" class="category-heading" draggable="true" data-preview-axis="columns" data-index="${depth}"><div class="header-label"><span>${esc(path(columns[i],depth))}</span></div></th>`;i=end;}
     head+=`<tr>${depth===0?corner:''}${cells}</tr>`;
   }
-  const empty=`<td class="skeleton-cell"><span aria-hidden="true"></span></td>`.repeat(Math.max(1,columns.length));
+  const valueCount=Math.max(1,columns.length),cell='<td class="skeleton-cell"><span aria-hidden="true"></span></td>',empty=cell.repeat(valueCount);
+  // The bottom-right cell offers "+ Measurement" so values can be added from the table itself.
+  const lastEmpty=cell.repeat(valueCount-1)+`<td class="skeleton-cell preview-add-measurement-cell">${builderAddMeasurementHTML()}</td>`;
   let body='';
-  if(!rows.length)body=`<tr><th scope="row" class="row-axis-header skeleton-hint">${t.rows.length?'No groups found':'Drop a row group here'}</th>${empty}</tr>`;
+  if(!rows.length)body=`<tr><th scope="row" class="row-axis-header skeleton-hint">${t.rows.length?'No groups found':'Drop a row group here'}</th>${lastEmpty}</tr>`;
   else for(let i=0;i<rows.length;i++){
     let headers='';
     for(let depth=0;depth<t.rows.length;depth++){
@@ -1642,12 +1685,10 @@ function builderSkeletonHTML(draft){
       let end=i+1;while(end<rows.length&&prefix(rows[end],depth)===prefix(rows[i],depth))end++;
       headers+=`<th scope="row" rowspan="${end-i}" class="category-cell category-level-${depth} row-axis-header" draggable="true" data-preview-axis="rows" data-index="${depth}"${offset(depth)}><div class="header-label"><span>${esc(path(rows[i],depth))}</span></div></th>`;
     }
-    body+=`<tr class="${rows[i].total?'total':''}">${headers}${empty}</tr>`;
+    body+=`<tr class="${rows[i].total?'total':''}">${headers}${i===rows.length-1?lastEmpty:empty}</tr>`;
   }
   const more=[[allRows.length-rows.length,'row'],[allColumns.length-columns.length,'column']].filter(([n])=>n>0).map(([n,kind])=>`${fmt(n,0)} more ${kind} ${n===1?'group':'groups'}`).join(' and ');
-  const hasGroups=t.rows.length||t.columns.length;
-  const intro=`<div class="builder-skeleton-intro"><div><strong>${hasGroups?'Your table is taking shape':'Start with your groups'}</strong><p>${hasGroups?'Choose a measurement to fill in the values.':'Add a row or column group, then choose a measurement to fill in the values.'} You can also drag groups onto the headers.</p></div><button type="button" class="text-button" data-action="builder-jump-measurements">Choose a measurement</button></div>`;
-  return `${intro}<div class="matrix-scroll builder-skeleton-scroll" tabindex="0" role="region" aria-label="Table preview without values"><table class="matrix builder-skeleton" style="--matrix-row-count:${rowLevels.length};--matrix-value-count:${Math.max(1,columns.length)}"><caption class="sr">Table preview. Values appear after you choose a measurement.</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>${more?`<p class="builder-preview-footnote">${more} appear in the finished table.</p>`:''}`;
+  return `<div class="matrix-scroll builder-skeleton-scroll" tabindex="0" role="region" aria-label="Table preview without values"><table class="matrix builder-skeleton" style="--matrix-row-count:${rowLevels.length};--matrix-value-count:${Math.max(1,columns.length)}"><caption class="sr">Table preview. Values appear after you choose a measurement.</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>${more?`<p class="builder-preview-footnote">${more} appear in the finished table.</p>`:''}`;
 }
 function builderPreview(){
   try{
@@ -1660,8 +1701,9 @@ function builderClick(button){
   if(work?.kind!=='builder')return false;
   const action=button.dataset.action;
   if(action==='metric-scope'){work.metricScope=button.dataset.scope;$$('[data-action=metric-scope]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.scope===work.metricScope)));filterBuilderMeasurements();return true;}
-  if(action==='builder-jump-measurements'){const panel=$('[data-builder-panel="measurements"]'),input=$('#metric-search');if(panel)panel.open=true;if(input){input.scrollIntoView({block:'center',behavior:'instant'});input.focus({preventScroll:true});}return true;}
   if(action==='builder-focus-axis'){toggleBuilderAxisMenu(button);return true;}
+  if(action==='builder-add-measurement'){toggleBuilderAxisMenu(button);return true;}
+  if(action==='add-measurement-field'){readBuilder();builderUseMeasurement(button.dataset.field);work.measurementSelectionChanged=true;builderSyncPeriods(work.draft);renderBuilder();builderMenuButton('measurements')?.focus({preventScroll:true});return true;}
 
   if(action==='builder-jump-preview'){const panel=$('.builder-preview-panel');panel.scrollIntoView({block:'start',behavior:'instant'});panel.focus({preventScroll:true});return true;}
   if(action==='transfer-level'){readBuilder();moveBuilderGroup(button.dataset.axis,Number(button.dataset.index),button.dataset.axis==='rows'?'columns':'rows');renderBuilder();return true;}
