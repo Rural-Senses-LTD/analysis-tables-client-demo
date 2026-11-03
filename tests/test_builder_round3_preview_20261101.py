@@ -42,10 +42,10 @@ class BuilderRound3PreviewTests(unittest.TestCase):
     def test_preview_heading_and_no_intro(self):
         p = self.page
         p.evaluate("openBuilder()")
-        heading = p.locator('.builder-preview-panel > h3.builder-preview-heading')
+        heading = p.locator('.builder-preview-panel .builder-preview-heading')
         self.assertEqual(heading.inner_text(), 'Table preview')
         self.assertTrue(heading.is_visible())
-        self.assertEqual(p.locator('.builder-preview-panel').get_attribute('aria-labelledby'), heading.get_attribute('id'))
+        self.assertEqual(p.locator('.builder-preview-panel').get_attribute('aria-labelledby'), 'builder-preview-heading builder-preview-title')
         for draft in ["", "work.draft.rows.push('q:crop'); renderBuilder()"]:
             p.evaluate(draft or "0")
             text = p.locator('#builder-preview').inner_text()

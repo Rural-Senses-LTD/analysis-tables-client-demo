@@ -143,7 +143,7 @@ class SimpleBuilderLeftTests(unittest.TestCase):
         pane = p.locator('.builder-preview-panel')
         self.assertTrue(pane.locator('#builder-preview').is_visible())
         visible_children = pane.evaluate("el => [...el.children].filter(c => !c.hidden && getComputedStyle(c).display !== 'none').map(c => c.id)")
-        self.assertEqual(visible_children, ['builder-preview-heading', 'builder-preview'])
+        self.assertEqual(visible_children, ['builder-preview-header', 'builder-preview'])
         text = p.locator('#work-dialog').inner_text()
         for gone in ['Shape your table', 'Choose measurements', 'Live preview', 'Refresh', 'Survey questions & raw data',
                      'Create the table when its structure', 'Choose a measurement, then add groups']:
