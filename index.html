@@ -1512,7 +1512,7 @@ function fieldAvailableInBuilder(f){
   return required.every(id=>ids.includes(id));
 }
 // Groups are offered only when they split records into a readable number of rows; names and IDs have one value per record.
-const MAX_GROUP_VALUES=10,groupValueCounts=new Map();
+const MAX_GROUP_VALUES=12,groupValueCounts=new Map();
 // Unclear labels: an enumerated duplicate ("Income #2") or a cut-off header with an unbalanced parenthesis.
 const unclearGroupLabel=label=>/#\s*\d/.test(label)||(label.match(/\(/g)||[]).length!==(label.match(/\)/g)||[]).length;
 // Fewest distinct non-blank answers among the selected sources that hold the field, stopping early above the limit.
