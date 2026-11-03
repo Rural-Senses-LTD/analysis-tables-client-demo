@@ -40,5 +40,16 @@ class FullscreenStickyHeaderTests(unittest.TestCase):
             p.wait_for_function("!document.fullscreenElement")
 
 
+    def test_regular_view_headers_are_not_sticky(self):
+        p = self.page
+        p.evaluate("const t=tableById('region');t.columns=['q:project'];t.stats=['mean','median'];t.change=true;t.changeStat='mean';render()")
+        positions = p.evaluate("""(() => { const card = document.querySelector('#table-region');
+          return [...new Set([card.querySelector('.matrix thead'), ...card.querySelectorAll('.matrix th:first-child, .matrix .row-axis-header')].map(el => getComputedStyle(el).position))]; })()""")
+        self.assertEqual(positions, ['static'])
+        before = p.evaluate("document.querySelector('#table-region .matrix tbody tr th').getBoundingClientRect().left")
+        p.evaluate("document.querySelector('#table-region .matrix-scroll').scrollLeft = 300")
+        after = p.evaluate("document.querySelector('#table-region .matrix tbody tr th').getBoundingClientRect().left")
+        self.assertLess(after, before - 100, 'Row headers scroll with the table in the regular view')
+
 if __name__ == '__main__':
     unittest.main()

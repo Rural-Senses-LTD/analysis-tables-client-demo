@@ -250,6 +250,10 @@ body{font-size:16px;line-height:1.5;letter-spacing:.1px}button,input,select,text
   #tables .table-card:fullscreen>.table-sticky-heading,#tables .table-card:fullscreen>.table-source-footer{flex:none}
   #tables .table-card:fullscreen>.matrix-scroll{flex:1 1 auto;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain}
 }
+/* Sticky column and row headers belong to full screen only; in the regular page view the table scrolls as one piece. */
+@media screen{
+  #tables .table-card:not(:fullscreen) .matrix thead,#tables .table-card:not(:fullscreen) .matrix th:first-child,#tables .table-card:not(:fullscreen) .matrix .row-axis-header{position:static}
+}
 
 /* Source context belongs beneath the grid; applied filters remain beside its controls. */
 .table-source-footer{padding-top:12px;margin-top:8px;border-top:1px solid #e4eae6;font-size:12px;color:#536c5b}
