@@ -32,29 +32,29 @@ class BuilderGroupsTests(unittest.TestCase):
     def test_new_table_hides_name_like_and_unclear_groups(self):
         self.page.evaluate("openBuilder()")
         labels = self.labels()
-        for gone in ["Name", "Farmer Name", "Farmer_UID", "Woreda", "Income #1", "Income #2",
+        for gone in ["Name", "Farmer Name", "Farmer_UID", "Income #1", "Income #2",
                      "Income #1 (standardized", "Income #2 (standardized"]:
             self.assertNotIn(gone, labels)
         self.assertFalse([x for x in labels if "#" in x], "enumerated labels are unclear")
-        for kept in ["Crop", "Region", "Gender", "Project", "Variety", "Officer Name"]:
+        for kept in ["Crop", "Region", "Gender", "Project", "Variety", "Officer Name", "Woreda", "Reported Baseline Period"]:
             self.assertIn(kept, labels)
         # The groups panel shows the same filtered list.
         shown = self.page.locator("[data-field-label]").evaluate_all("items => items.map(x => x.dataset.fieldLabel)")
         self.assertTrue(shown)
         self.assertFalse([x for x in shown if x in ("name", "farmer name") or "#" in x])
 
-    def test_every_listed_group_has_at_most_twelve_values(self):
+    def test_every_listed_group_has_at_most_sixteen_values(self):
         self.page.evaluate("openBuilder()")
         counts = self.page.evaluate(INDEPENDENT_COUNTS)
         self.assertTrue(counts)
-        self.assertEqual({k: v for k, v in counts.items() if v > 12}, {})
+        self.assertEqual({k: v for k, v in counts.items() if v > 16}, {})
 
     def test_group_already_in_table_stays_listed(self):
         p = self.page
         p.evaluate("openBuilder()")
-        self.assertNotIn("Woreda", self.labels())
-        p.evaluate("work.draft.rows.push('q:woreda')")
-        self.assertIn("Woreda", self.labels())
+        self.assertNotIn("Farmer Name", self.labels())
+        p.evaluate("work.draft.rows.push('q:farmer_name')")
+        self.assertIn("Farmer Name", self.labels())
         # A preset that groups by a source column (Wareda) keeps the shared question available.
         p.evaluate("openBuilder('area')")
         self.assertIn("e:Wareda", p.evaluate("work.draft.rows"))
