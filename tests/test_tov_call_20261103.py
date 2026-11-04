@@ -1,0 +1,181 @@
+"""Changes from the 3 November 2026 TOV call (Eshel building tables on a small screen).
+
+Run with the existing suite: python -m unittest discover -s tests -v
+"""
+import json
+import unittest
+
+import test_feedback_20260922 as previous
+
+
+class TovCall20261103Tests(unittest.TestCase):
+    setUpClass = classmethod(previous.FeedbackBrowserTests.setUpClass.__func__)
+    tearDownClass = classmethod(previous.FeedbackBrowserTests.tearDownClass.__func__)
+    setUp = previous.FeedbackBrowserTests.setUp
+    tearDown = previous.FeedbackBrowserTests.tearDown
+    open_builder_panels = previous.FeedbackBrowserTests.open_builder_panels
+    drag = previous.FeedbackBrowserTests.drag
+
+    def toast(self):
+        return self.page.locator('#toast').inner_text()
+
+    # Items 1 and 2: saved tables that used the old IDs still load.
+    def test_saved_tables_with_old_question_ids_still_load(self):
+        p = self.page
+        saved = p.evaluate("""(() => {
+          const s = clone(state), t = s.tables.find(x => x.id === 'crops');
+          t.rows = ['q:irrigation_method', 'q:irrigation_type']; t.columns = ['b:Variety'];
+          return JSON.stringify(s);
+        })()""")
+        p.evaluate("([key, value]) => localStorage.setItem(key, value)", [p.evaluate("STORAGE_KEY"), saved])
+        p.reload()
+        table = p.evaluate("(() => { const t = tableById('crops'); return {rows: t.rows, columns: t.columns}; })()")
+        self.assertEqual(table, {'rows': ['q:irrigation_type'], 'columns': ['e:Variety']})
+        self.assertNotIn('could not be loaded', self.toast())
+
+    # Item 3: the settings panel can be hidden to give the preview the full width.
+    def test_settings_panel_can_be_hidden_and_shown(self):
+        p = self.page
+        p.set_viewport_size({'width': 1000, 'height': 760})
+        p.evaluate("openBuilder(); work.draft.rows = ['q:crop']; renderBuilder()")
+        toggle = p.locator('[data-action="builder-toggle-settings"]')
+        self.assertEqual(toggle.inner_text(), 'Hide settings')
+        before = p.locator('.builder-preview-panel').bounding_box()['width']
+        p.locator('#builder-title').fill('Kept while hidden')
+        toggle.click()
+        self.assertFalse(p.locator('.builder-settings').is_visible())
+        self.assertEqual(toggle.get_attribute('aria-expanded'), 'false')
+        self.assertEqual(toggle.inner_text(), 'Show settings')
+        self.assertGreater(p.locator('.builder-preview-panel').bounding_box()['width'], before + 250)
+        self.assertEqual(p.locator('#builder-preview-title').inner_text(), 'Kept while hidden')
+        p.screenshot(path=str(previous.ARTIFACTS / '20261103-settings-hidden-1000.png'))
+        toggle.click()
+        self.assertTrue(p.locator('.builder-settings').is_visible())
+        self.assertEqual(p.locator('#builder-title').input_value(), 'Kept while hidden')
+        # On a phone the panels stack, so there is nothing to hide.
+        p.set_viewport_size({'width': 390, 'height': 844})
+        self.assertFalse(toggle.is_visible())
+
+    # Item 4: typing an answer finds the group it belongs to.
+    def test_group_search_finds_a_group_by_its_answers(self):
+        p = self.page
+        p.evaluate("openBuilder()")
+        self.open_builder_panels()
+        p.locator('#fields-search').fill('galilea')
+        visible = p.locator('.group-choice:visible')
+        self.assertEqual(visible.count(), 1)
+        self.assertIn('Variety', visible.inner_text())
+        self.assertIn('Has “Galilea', visible.inner_text())
+        p.locator('#fields-search').fill('variety')
+        self.assertEqual(p.locator('.group-choice:visible .field-row-match').count(), 0, 'A name match needs no answer hint')
+        p.locator('[data-builder-menu="rows"]').click()
+        p.locator('[data-builder-axis-menu-search]').fill('drip')
+        option = p.locator('#builder-axis-menu [role="option"]')
+        self.assertEqual(option.count(), 1)
+        self.assertIn('Irrigation Type', option.inner_text())
+        self.assertIn('Has “Drip”', option.inner_text())
+        # An answer whose group is already in the table points there instead of a dead end.
+        p.keyboard.press('Escape')
+        p.evaluate("readBuilder(); work.draft.columns = ['q:variety']; renderBuilder()")
+        p.locator('[data-builder-menu="rows"]').click()
+        p.locator('[data-builder-axis-menu-search]').fill('galilea')
+        self.assertIn('is an answer in Variety, which is already in your table', p.locator('#builder-axis-menu').inner_text())
+
+    # Item 5: shared parts of series names are said once.
+    def test_chart_series_names_drop_the_parts_all_series_share(self):
+        p = self.page
+        names = p.evaluate("""(() => {
+          const h = (variety, key) => ({group: {key, path: [['q:crop', 'Tomato'], ['q:variety', variety]]}, period: 'aggregate', stat: 'mean', label: 'Combined sources mean'});
+          const r = chartSeriesNames([h('Gabi', 'a'), h('Galilea 39', 'b'), h(null, 'c')]);
+          return {names: [...r.names.values()], common: r.common, single: [...chartSeriesNames([h('Gabi', 'a')]).names.values()]};
+        })()""")
+        self.assertEqual(names['names'], ['Gabi', 'Galilea 39', 'Missing'])
+        self.assertEqual(names['common'], 'Tomato · Combined sources mean')
+        self.assertEqual(names['single'], ['Tomato · Gabi · Combined sources mean'])
+        html = p.evaluate("""(() => {
+          const t = clone(tableById('crops')); t.columns = ['q:project'];
+          const data = calculate(t), keys = data.headers.filter(h => h.stat === 'mean' && h.period === 'e' && h.group.path?.[0]?.[1]).map(chartSeriesKey);
+          return chartHTML(t, data, {...chartDefaults(t, data), series: keys}, true);
+        })()""")
+        p.set_content(f'<div id="c">{html}</div>')
+        self.assertEqual(p.locator('.chart-series-common').inner_text(), 'All bars: Endline mean')
+        self.assertEqual(sorted(p.locator('.chart-legend span').all_inner_texts()), ['Demo Farmers', "TOV Le'isua"])
+        samples = p.locator('.chart-samples small').first.inner_text()
+        self.assertNotIn('Endline mean', samples, 'Sample sizes under the bars no longer repeat series names')
+        self.assertIn('N=', samples)
+
+    def test_chosen_chart_series_get_distinct_default_colours(self):
+        p = self.page
+        p.evaluate("""(() => { const t = tableById('crops'); t.rows = ['q:irrigation_type']; t.columns = ['q:crop', 'q:variety']; persist(); render(); openChart('crops'); })()""")
+        keys = p.evaluate("""(() => { const d = calculate(tableById('crops'));
+          return d.headers.filter(h => h.stat === 'mean' && h.period === 'e' && h.group.path?.[0]?.[1] === 'Tomato').slice(0, 3).map(chartSeriesKey); })()""")
+        self.assertEqual(len(keys), 3)
+        p.evaluate("keys => { document.querySelectorAll('[data-chart-series]').forEach(el => el.checked = keys.includes(el.value)); updateChartPreview(); }", keys)
+        colours = p.locator('#chart-preview .chart-legend i').evaluate_all('els => els.map(e => getComputedStyle(e).backgroundColor)')
+        self.assertEqual(len(set(colours)), 3, 'Each chosen series has its own colour')
+        self.assertEqual(p.evaluate("readChartConfig().colors"), {}, 'Default colours are not saved as choices')
+        p.evaluate("keys => { const el = [...document.querySelectorAll('[data-chart-color]')].find(x => x.dataset.chartColor === keys[1]); el.value = '#000000'; updateChartPreview(); }", keys)
+        self.assertEqual(list(p.evaluate("readChartConfig().colors").values()), ['#000000'])
+
+    # Item 6: one menu at a time, and hidden groups are easy to bring back.
+    def test_one_menu_at_a_time_and_hidden_groups_are_findable(self):
+        p = self.page
+        card = p.locator('#table-crops')
+        header = card.locator('details.header-menu').first
+        header.locator('summary').click()
+        self.assertTrue(header.evaluate('el => el.open'))
+        table_menu = card.locator('.table-tools > details.menu')
+        table_menu.locator('summary').click()
+        self.assertTrue(table_menu.evaluate('el => el.open'))
+        self.assertFalse(header.evaluate('el => el.open'), 'Opening the table menu closes the column menu')
+        p.locator('h1, .project-header').first.click()
+        self.assertFalse(table_menu.evaluate('el => el.open'), 'A click outside closes the menu')
+        p.evaluate("""(() => { const t = tableById('crops'), d = calculate(t), row = d.rows.find(r => !r.group.total);
+          t.hidden.rows.push(row.group.path); persist(); renderTable('crops'); })()""")
+        button = card.locator('.hidden-groups-button')
+        self.assertEqual(button.inner_text().strip(), 'Show 1 hidden group')
+        card.locator('.table-tools > details.menu summary').click()
+        self.assertTrue(card.locator('.table-tools > details.menu [data-action="groups"]').is_visible())
+        button.click()
+        self.assertTrue(p.locator('[data-action="show-all-groups"]').is_visible())
+
+    # Item 7: dragging a header shows the group's name and lights only the column-group headers.
+    def test_preview_drag_marks_one_group_and_lights_only_group_headers(self):
+        p = self.page
+        p.evaluate("openBuilder(); work.draft.rows = ['q:region']; work.draft.columns = ['q:crop', 'q:gender']; readBuilder(); builderUseMeasurement('yield'); renderBuilder()")
+        state = p.evaluate("""(() => {
+          const source = document.querySelector('#builder-preview th[data-preview-axis="columns"][data-index="1"]');
+          const target = document.querySelector('#builder-preview th[data-preview-axis="columns"][data-index="0"]');
+          const dt = new DataTransfer(), fire = (type, el) => el.dispatchEvent(new DragEvent(type, {bubbles: true, cancelable: true, dataTransfer: dt}));
+          fire('dragstart', source); fire('dragover', target);
+          const marked = [...document.querySelectorAll('#builder-preview .drag-source')].every(el => el.dataset.index === '1');
+          const lit = [...document.querySelectorAll('#builder-preview thead .field-drop-active')];
+          const out = {marked, markedCount: document.querySelectorAll('#builder-preview .drag-source').length,
+                       litOnlyGroups: lit.length > 0 && lit.every(el => el.dataset.previewAxis === 'columns'),
+                       headLit: document.querySelector('#builder-preview thead').classList.contains('field-drop-active')};
+          fire('dragend', source);
+          out.cleared = !document.querySelector('#builder-preview .drag-source, #builder-preview .field-drop-active');
+          return out;
+        })()""")
+        self.assertTrue(state['marked'])
+        self.assertGreater(state['markedCount'], 1)
+        self.assertTrue(state['litOnlyGroups'], 'The measurement row under the column groups is not lit')
+        self.assertFalse(state['headLit'])
+        self.assertTrue(state['cleared'])
+        # Dropping a column group onto the row headers still moves it.
+        self.drag('#builder-preview th[data-preview-axis="columns"][data-index="1"]', '#builder-preview th.row-axis-header[data-preview-axis="rows"]')
+        self.assertEqual(p.evaluate("[work.draft.rows, work.draft.columns]"), [['q:region', 'q:gender'], ['q:crop']])
+
+    # Item 9: swapping counts and measurements says so.
+    def test_switching_between_counts_and_measurements_says_what_changed(self):
+        p = self.page
+        p.evaluate("openBuilder(); work.draft.metrics = ['count']; work.draft.stats = ['count']; builderUseMeasurement('yield')")
+        self.assertIn('Number of respondents was removed', self.toast())
+        p.evaluate("builderUseMeasurement('count')")
+        self.assertIn('Number of respondents replaced', self.toast())
+        self.assertIn('Yield per hectare', self.toast())
+        self.assertEqual(p.evaluate("work.draft.metrics"), ['count'])
+
+
+if __name__ == '__main__':
+    unittest.main()
