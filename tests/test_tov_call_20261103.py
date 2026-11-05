@@ -33,28 +33,66 @@ class TovCall20261103Tests(unittest.TestCase):
         self.assertEqual(table, {'rows': ['q:irrigation_type'], 'columns': ['e:Variety']})
         self.assertNotIn('could not be loaded', self.toast())
 
-    # Item 3: the settings panel can be hidden to give the preview the full width.
-    def test_settings_panel_can_be_hidden_and_shown(self):
+    # Item 3 (revised 5 Nov): an arrow on the settings pane folds it to a narrow rail and back.
+    def test_settings_panel_folds_with_an_arrow_on_the_pane(self):
         p = self.page
         p.set_viewport_size({'width': 1000, 'height': 760})
         p.evaluate("openBuilder(); work.draft.rows = ['q:crop']; renderBuilder()")
-        toggle = p.locator('[data-action="builder-toggle-settings"]')
-        self.assertEqual(toggle.inner_text(), 'Hide settings')
+        toggle = p.locator('.builder-settings [data-action="builder-toggle-settings"]')
+        self.assertEqual(toggle.get_attribute('aria-label'), 'Hide settings')
+        self.assertEqual(p.locator('.builder-preview-header [data-action="builder-toggle-settings"]').count(), 0)
         before = p.locator('.builder-preview-panel').bounding_box()['width']
         p.locator('#builder-title').fill('Kept while hidden')
         toggle.click()
-        self.assertFalse(p.locator('.builder-settings').is_visible())
+        toggle = p.locator('.builder-settings [data-action="builder-toggle-settings"]')
+        self.assertTrue(toggle.is_visible(), 'The arrow stays on the folded pane')
+        self.assertEqual(toggle.get_attribute('aria-label'), 'Show settings')
         self.assertEqual(toggle.get_attribute('aria-expanded'), 'false')
-        self.assertEqual(toggle.inner_text(), 'Show settings')
+        self.assertFalse(p.locator('.builder-heading').is_visible())
+        self.assertLess(p.locator('.builder-settings').bounding_box()['width'], 60)
         self.assertGreater(p.locator('.builder-preview-panel').bounding_box()['width'], before + 250)
         self.assertEqual(p.locator('#builder-preview-title').inner_text(), 'Kept while hidden')
-        p.screenshot(path=str(previous.ARTIFACTS / '20261103-settings-hidden-1000.png'))
+        p.screenshot(path=str(previous.ARTIFACTS / '20261105-settings-folded-1000.png'))
         toggle.click()
-        self.assertTrue(p.locator('.builder-settings').is_visible())
+        self.assertTrue(p.locator('.builder-heading').is_visible())
         self.assertEqual(p.locator('#builder-title').input_value(), 'Kept while hidden')
-        # On a phone the panels stack, so there is nothing to hide.
+        # On a phone the panels stack, so there is nothing to fold.
         p.set_viewport_size({'width': 390, 'height': 844})
-        self.assertFalse(toggle.is_visible())
+        self.assertFalse(p.locator('.builder-settings [data-action="builder-toggle-settings"]').is_visible())
+
+    # 5 Nov review: centred column headers, a clearer line between top-level groups, menus above the table.
+    def test_column_groups_are_centred_and_separated(self):
+        p = self.page
+        p.evaluate("(() => { const t = tableById('area'); persist(); renderTable('area'); })()")
+        result = p.evaluate("""(() => {
+          const table = document.querySelector('#table-area .matrix');
+          const heads = [...table.querySelectorAll('thead tr:first-child th.category-heading:not(.row-axis-header)')];
+          const label = heads[1].querySelector('.header-label > span'), cell = heads[1].getBoundingClientRect(), box = label.getBoundingClientRect();
+          const starts = heads.slice(1).map(th => th.classList.contains('group-start'));
+          const firstBody = table.querySelector('tbody tr:not(.measurement-heading)');
+          return {align: getComputedStyle(heads[1]).textAlign, offCentre: Math.abs((box.left + box.right) / 2 - (cell.left + cell.right) / 2),
+                  starts, firstNotStart: !heads[0].classList.contains('group-start'),
+                  bodyStarts: firstBody.querySelectorAll('td.group-start').length, groups: heads.length,
+                  border: getComputedStyle(firstBody.querySelector('td.group-start')).borderLeftWidth};
+        })()""")
+        self.assertEqual(result['align'], 'center')
+        self.assertLess(result['offCentre'], 20, 'The group name sits in the middle of its columns')
+        self.assertTrue(all(result['starts']) and result['firstNotStart'])
+        self.assertEqual(result['bodyStarts'], result['groups'] - 1, 'The group line runs through the body')
+        self.assertEqual(result['border'], '1px')
+
+    def test_open_table_menu_sits_above_the_floating_header(self):
+        # 5 Nov review: once the table's header row scrolls under the title bar, the floating copy of the header
+        # (z-index 9) covered the open table menu (inside the title bar, z-index 8).
+        p = self.page
+        p.set_viewport_size({'width': 1050, 'height': 870})
+        p.evaluate("(() => { const c = document.querySelector('#table-transitions'); window.scrollTo(0, c.getBoundingClientRect().top + window.scrollY - 60); })()")
+        p.wait_for_timeout(200)
+        p.locator('#table-transitions .table-tools > details.menu summary').click()
+        covered = p.evaluate("""(() => { const list = document.querySelector('#table-transitions .table-tools details.menu .menu-list'), r = list.getBoundingClientRect(), hits = [];
+          for (let y = r.top + 8; y < Math.min(r.bottom, innerHeight) - 4; y += 12) { const el = document.elementFromPoint(r.left + 40, y); if (el && !list.contains(el)) hits.push(el.tagName); }
+          return hits; })()""")
+        self.assertEqual(covered, [])
 
     # Item 4: typing an answer finds the group it belongs to.
     def test_group_search_finds_a_group_by_its_answers(self):
