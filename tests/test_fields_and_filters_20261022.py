@@ -78,7 +78,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertIn('is a number, not a group', empty.inner_text())
         self.assertIn('Measurements', empty.inner_text())
         p.locator('#fields-search').fill('zzzz-no-such')
-        self.assertEqual(empty.inner_text(), 'No groups match your search.')
+        self.assertEqual(empty.inner_text(), 'No groups or answers match your search.')
 
     def test_source_mode_wording(self):
         p = self.page
@@ -88,21 +88,27 @@ class FieldsAndFiltersTests(unittest.TestCase):
 
 
     def test_variety_and_project_join_exact_names_only(self):
+        # 3 Nov 2026: Variety describes the Endline season, so it is joined to Endline Farmer Name; Project stays on Baseline.
         p = self.page
         result = p.evaluate(r"""(() => {
-          const rows = DATA.farmers.filter(f => f.b).map(f => f.b.values);
-          const names = {};
-          rows.forEach(v => { const n = String(v.Name || '').replace(/\\s+/g, ' ').trim().toLowerCase(); names[n] = (names[n] || 0) + 1; });
-          const duplicated = rows.filter(v => names[String(v.Name || '').replace(/\\s+/g, ' ').trim().toLowerCase()] > 1);
-          const fields = ['b:Variety', 'b:Project'].map(id => fieldInfo(id));
-          return {variety: rows.filter(v => v.Variety).length, project: rows.filter(v => v.Project).length, total: rows.length,
-                  duplicatedFilled: duplicated.filter(v => v.Variety || v.Project).length, fields: fields.map(f => f && f.type),
-                  varietyOptions: fieldInfo('b:Variety').options.length};
+          const norm = n => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          const counts = rows => { const c = {}; rows.forEach(n => { c[norm(n)] = (c[norm(n)] || 0) + 1; }); return c; };
+          const base = DATA.farmers.filter(f => f.b).map(f => f.b.values), end = DATA.farmers.filter(f => f.e).map(f => f.e.values);
+          const bNames = counts(base.map(v => v.Name)), eNames = counts(end.map(v => v['Farmer Name']));
+          return {variety: end.filter(v => v.Variety).length, endTotal: end.length, project: base.filter(v => v.Project).length, total: base.length,
+                  baselineVariety: base.filter(v => 'Variety' in v).length, oldField: !!fieldInfo('b:Variety'),
+                  duplicatedFilled: base.filter(v => bNames[norm(v.Name)] > 1 && v.Project).length + end.filter(v => eNames[norm(v['Farmer Name'])] > 1 && v.Variety).length,
+                  fields: ['e:Variety', 'b:Project'].map(id => fieldInfo(id)?.type), varietyOptions: fieldInfo('e:Variety').options.length,
+                  question: questionMap.get('q:variety').fields};
         })()""")
-        self.assertEqual((result['variety'], result['project'], result['total']), (208, 208, 254))
+        self.assertEqual((result['variety'], result['endTotal']), (236, 241))
+        self.assertEqual((result['project'], result['total']), (208, 254))
+        self.assertEqual(result['baselineVariety'], 0, 'Variety is no longer stored on Baseline records')
+        self.assertFalse(result['oldField'])
         self.assertEqual(result['duplicatedFilled'], 0, 'Duplicate farmer names must stay blank')
         self.assertEqual(result['fields'], ['category', 'category'])
         self.assertGreater(result['varietyOptions'], 5)
+        self.assertEqual(result['question'], {'e': 'e:Variety'})
 
     def test_project_from_profile_list_matches_endline_project(self):
         p = self.page
@@ -308,7 +314,9 @@ class FieldsAndFiltersTests(unittest.TestCase):
         result = p.evaluate("""(() => {
           const q = questionMap.get('q:crop');
           const guess = suggestQuestionMapping();
-          const suggested = Object.entries(guess).every(([p, cols]) => Object.entries(cols).every(([h, id]) => h === 'Wareda' || DATA.questionMapping[p][h] === id));
+          // Manual decisions: the Wareda spelling, and (3 Nov 2026) Baseline Irrigation Method and Name merged into the Endline wording.
+          const manual = ['Wareda', 'Irrigation Method', 'Name'];
+          const suggested = Object.entries(guess).every(([p, cols]) => Object.entries(cols).every(([h, id]) => manual.includes(h) || DATA.questionMapping[p][h] === id));
           const aliased = DATA.questionMapping.e.Wareda + '/' + DATA.questionMapping.b.Woreda;
           return {id: q.questionId, period: q.period, fields: q.fields, sourceLabel: q.sourceLabel, stored: Object.keys(DATA.questionMapping),
                   mapped: DATA.questionMapping.b['Baseline Crop'] + '/' + DATA.questionMapping.e['Crop'], suggested, aliased,
@@ -318,7 +326,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertIsNone(result['period'])
         self.assertEqual(result['fields'], {'b': 'b:Baseline Crop', 'e': 'e:Crop'})
         self.assertEqual(result['mapped'], 'q:crop/q:crop')
-        self.assertTrue(result['suggested'], 'Every name-matched pair is in the stored mapping (Wareda is the one manual decision)')
+        self.assertTrue(result['suggested'], 'Every name-matched pair is in the stored mapping, apart from the manual decisions')
         self.assertEqual(result['aliased'], 'q:woreda/q:woreda', 'The Wareda spelling variant is stored as a mapping decision')
         self.assertTrue(result['ids'])
 
@@ -341,24 +349,21 @@ class FieldsAndFiltersTests(unittest.TestCase):
         self.assertGreater(sum(v for k, v in result['got'].items() if k != 'Blank'), 200, 'Linked Endline records show their Baseline gender')
 
     def test_a_differently_spelled_column_can_be_mapped_to_an_existing_question(self):
+        # 3 Nov 2026: Baseline "Irrigation Method" and Endline "Irrigation Type" are stored as one question.
         p = self.page
         html = (previous.ROOT / 'index.html').read_text(encoding='utf-8')
-        self.assertEqual(html.count('"Irrigation Type":"q:irrigation_type"'), 1)
-        changed = html.replace('"Irrigation Type":"q:irrigation_type"', '"Irrigation Type":"q:irrigation_method"')
-        page = self.context.new_page()
-        page.route(re.compile(r'^http://127\.0\.0\.1:\d+/(index\.html)?(\?.*)?$'), lambda route: route.fulfill(body=changed, content_type='text/html'))
-        page.goto(self.url)
-        result = page.evaluate("""(() => {
-          const q = questionMap.get('q:irrigation_method');
+        self.assertEqual(html.count('"Irrigation Method":"q:irrigation_type"'), 1)
+        result = p.evaluate("""(() => {
+          const q = questionMap.get('q:irrigation_type');
           const t = clone(state.tables[0]);
-          t.cohort = 'all'; t.rows = ['q:irrigation_method']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
+          t.cohort = 'all'; t.rows = ['q:irrigation_type']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
           validateState({version: 1, fingerprint: DATA.fingerprint, definitions: [], tables: [t]});
           const data = calculate(t), b = data.headers.findIndex(h => h.period === 'b'), e = data.headers.findIndex(h => h.period === 'e');
-          return {fields: q.fields, gone: questionMap.has('q:irrigation_type'),
+          return {fields: q.fields, gone: questionMap.has('q:irrigation_method'), label: q.label,
                   baseline: data.rows.reduce((n, r) => n + (r.cells[b].value || 0), 0), endline: data.rows.reduce((n, r) => n + (r.cells[e].value || 0), 0)};
         })()""")
-        page.close()
         self.assertEqual(result['fields'], {'b': 'b:Irrigation Method', 'e': 'e:Irrigation Type'})
+        self.assertEqual(result['label'], 'Irrigation Type')
         self.assertFalse(result['gone'])
         self.assertGreater(result['baseline'], 0)
         self.assertGreater(result['endline'], 0)
