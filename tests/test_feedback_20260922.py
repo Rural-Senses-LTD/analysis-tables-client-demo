@@ -212,9 +212,10 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.assertEqual(names(), ['Onion', 'Tomato', 'Pepper', 'Cabbage'])
         p.locator('[data-chart-color]').nth(1).fill('#8e3d8e')
         self.assertEqual(p.locator('#chart-preview .chart-bars').first.locator('.vertical-bar').nth(1).evaluate('el=>el.style.backgroundColor'), 'rgb(142, 61, 142)')
-        self.assertIn('N=113', p.locator('#chart-preview .chart-samples').first.inner_text())
+        # 10 Nov 2026: with two or more series the N sits on each bar (.bar-n) instead of in a list under the category.
+        self.assertIn('N=113', ' '.join(p.locator('#chart-preview .bar-n').all_inner_texts()))
         p.locator('#chart-samples').select_option('percent')
-        self.assertIn('% of', p.locator('#chart-preview .chart-samples').first.inner_text())
+        self.assertIn('% of', p.locator('#chart-preview .bar-n').first.inner_text())
         p.screenshot(path=str(ARTIFACTS / 'chart-settings-desktop.png'))
         p.locator('[data-action="chart-save"]').click()
         p.reload()
