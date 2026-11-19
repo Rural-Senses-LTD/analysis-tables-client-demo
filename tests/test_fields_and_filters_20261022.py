@@ -130,6 +130,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
 
     def test_result_block_chips_collapse_and_zero_state(self):
         p = self.page
+        previous.FeedbackBrowserTests.use_uid_matching(self)
         p.evaluate('openFilters(state.tables[0].id)')
         self.assertIn('240', p.locator('#filter-result').inner_text())
         self.add_filter('Region')
@@ -284,6 +285,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
 
     def test_change_columns_keep_only_records_with_the_same_answer_in_both_sources(self):
         p = self.page
+        previous.FeedbackBrowserTests.use_uid_matching(self)
         result = p.evaluate("""(() => {
           const t = clone(state.tables[0]);
           t.cohort = 'all'; t.rows = ['q:crop']; t.columns = []; t.metrics = ['yield']; t.stats = ['mean']; t.change = true; t.totals = false;
@@ -332,6 +334,7 @@ class FieldsAndFiltersTests(unittest.TestCase):
 
     def test_a_question_asked_in_one_source_is_carried_to_linked_records(self):
         p = self.page
+        previous.FeedbackBrowserTests.use_uid_matching(self)
         result = p.evaluate("""(() => {
           const t = clone(state.tables[0]);
           t.cohort = 'all'; t.rows = ['q:gender']; t.columns = []; t.metrics = ['count']; t.stats = ['count']; t.change = false; t.totals = false;
