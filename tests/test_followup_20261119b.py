@@ -45,10 +45,31 @@ class Followup20261119bTests(unittest.TestCase):
         self.assertRegex(panel, r"\d+ of 241 records answered")
         self.assertIn("Sample:", panel)
         p.locator('[data-action="add-definition-input"]').click()
-        self.pick(1, "Income per hectare · Baseline")
+        self.pick(1, "Size of Land (Ha)")
         second = p.locator('.def-var-sources').nth(1).inner_text()
-        self.assertIn("income ETB", second)
-        self.assertIn("Land Size Ha", second)
+        self.assertIn("Endline", second)
+        self.assertRegex(second, r"\d+ of 241 records answered")
+
+    def test_only_raw_survey_questions_are_offered(self):
+        p = self.page
+        p.evaluate("openDefinition('measure')")
+        values = p.locator('[data-definition-input="0"] option').evaluate_all("els => els.map(o => o.value)")
+        texts = p.locator('[data-definition-input="0"] option').all_inner_texts()
+        self.assertTrue(values and all(p.evaluate("id => fieldMap.has(id)", v) for v in values))
+        for project_measurement in ("Income per hectare", "Land size", "Yield per hectare"):
+            self.assertFalse(any(t.startswith(project_measurement + " ·") or t.startswith(project_measurement + " change") for t in texts), project_measurement)
+        self.assertIn("Land Size Ha", texts)
+
+    def test_a_saved_definition_using_a_project_measurement_keeps_it(self):
+        p = self.page
+        p.evaluate(
+            """() => { state.definitions.push({id: 'custom-legacy', kind: 'measure', label: 'Old', unit: '', formula: 'VAR1', inputs: ['m:incomeha:b'], mapping: {}});
+              openDefinition('measure', 'custom-legacy'); }"""
+        )
+        select = p.locator('[data-definition-input="0"]')
+        self.assertEqual(select.input_value(), "m:incomeha:b")
+        self.assertIn("(project measurement", select.locator("option:checked").inner_text())
+        self.assertIn("income ETB", p.locator('.def-var-sources').first.inner_text())
 
     def test_variable_chip_opens_raw_data_and_keeps_the_draft(self):
         p = self.page

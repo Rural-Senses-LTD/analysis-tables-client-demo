@@ -2001,10 +2001,15 @@ function saveStandardDefinition(){
 function definitionCategoryAnswers(source){const f=fieldMap.get(source),records=dataSources().find(s=>s.id===f?.period)?.records||[];return [...new Set(records.map(r=>r.values?.[f.header]).filter(v=>!blank(v)).map(String))].sort((a,b)=>a.localeCompare(b));}
 
 function openDefinition(kind,id){const existing=state.definitions.find(x=>x.id===id),inputs=definitionInputs(),categorySource=catalogue().find(f=>!f.defined&&f.type==='category')||DATA.fields[0];work={kind:'definition',existing:id,draft:existing?clone(existing):{id:'custom-'+crypto.randomUUID(),kind,label:'',unit:'',formula:'VAR1',inputs:inputs.length?[inputs[0].id]:[],source:categorySource?.id,mapping:{}}};renderDefinition();}
-function definitionInputs(){return catalogue().filter(f=>f.type==='number'&&!f.id.startsWith('custom-'));}
+// 19 Nov 2026 (Yau): a calculated measurement is built from raw survey questions only. Project measurements
+// (Income per hectare, Land size, their change and change %) are already calculations, so they are not offered as inputs.
+function definitionInputs(){return catalogue().filter(f=>f.type==='number'&&fieldMap.has(f.id)&&!f.defined);}
 // 19 Nov 2026 (Yau): pick a variable by its question name alone, A to Z. A source is added to the name only when two sources
 // use exactly the same name for a numeric question, so the two options can still be told apart.
-function variableOptionsHTML(fields,current){const name=f=>plainFieldLabel(f),count=new Map();fields.forEach(f=>count.set(name(f),(count.get(name(f))||0)+1));return [...fields].sort((a,b)=>name(a).localeCompare(name(b),undefined,{numeric:true,sensitivity:'base'})).map(f=>`<option value="${esc(f.id)}"${selected(f.id,current)}>${esc(name(f)+(count.get(name(f))>1?' · '+(f.sourceLabel||sourceName(f.period)):''))}</option>`).join('');}
+function variableOptionsHTML(fields,current){
+  // A definition saved before this change may still use a project measurement. Keep it listed, labelled, so opening it changes nothing.
+  const legacy=current&&!fields.some(f=>f.id===current)?catalogue().find(f=>f.id===current):null;if(legacy)fields=[...fields,{...legacy,legacyInput:true}];
+  const name=f=>plainFieldLabel(f)+(f.legacyInput?' (project measurement'+(f.sourceLabel?' · '+f.sourceLabel:'')+')':''),count=new Map();fields.forEach(f=>count.set(name(f),(count.get(name(f))||0)+1));return [...fields].sort((a,b)=>name(a).localeCompare(name(b),undefined,{numeric:true,sensitivity:'base'})).map(f=>`<option value="${esc(f.id)}"${selected(f.id,current)}>${esc(name(f)+(count.get(name(f))>1?' · '+(f.sourceLabel||sourceName(f.period)):''))}</option>`).join('');}
 // Under each variable: the data sources that hold a question with this exact name, each a link to the raw data at that
 // column, with how many records answered and the first few values, so you can check it is the question you mean.
 function variableSourceRowHTML(sourceId,name,note=''){const s=dataSources().find(x=>x.id===sourceId);if(!s)return '';const values=s.records.map(r=>r.values?.[name]),answered=values.filter(v=>!blank(v)),sample=answered.slice(0,5).map(v=>finite(numeric(v))?fmt(numeric(v),numeric(v)%1?2:0):String(v));
