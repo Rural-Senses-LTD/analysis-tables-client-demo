@@ -127,7 +127,7 @@ class TovCall20261103Tests(unittest.TestCase):
           const r = chartSeriesNames([h('Gabi', 'a'), h('Galilea 39', 'b'), h(null, 'c')]);
           return {names: [...r.names.values()], common: r.common, single: [...chartSeriesNames([h('Gabi', 'a')]).names.values()]};
         })()""")
-        self.assertEqual(names['names'], ['Gabi', 'Galilea 39', 'Missing'])
+        self.assertEqual(names['names'], ['Gabi', 'Galilea 39', 'Blank'])
         self.assertEqual(names['common'], 'Tomato · Combined sources mean')
         self.assertEqual(names['single'], ['Tomato · Gabi · Combined sources mean'])
         html = p.evaluate("""(() => {
@@ -138,8 +138,9 @@ class TovCall20261103Tests(unittest.TestCase):
         p.set_content(f'<div id="c">{html}</div>')
         self.assertEqual(p.locator('.chart-series-common').inner_text(), 'All bars: Endline mean')
         self.assertEqual(sorted(p.locator('.chart-legend span').all_inner_texts()), ['Demo Farmers', "TOV Le'isua"])
-        samples = p.locator('.chart-samples small').first.inner_text()
-        self.assertNotIn('Endline mean', samples, 'Sample sizes under the bars no longer repeat series names')
+        # 10 Nov 2026: the N now sits on each bar rather than in a list under the category.
+        samples = p.locator('.bar-n').first.inner_text()
+        self.assertNotIn('Endline mean', samples, 'Sample sizes on the bars do not repeat series names')
         self.assertIn('N=', samples)
 
     def test_chosen_chart_series_get_distinct_default_colours(self):
