@@ -49,3 +49,15 @@ called it "Blank" (video 13:27 shows both). The chart now says "Blank" too.
 | Bring Rural Senses in as a research body for the Leaf fund proposal | Eshel 52:35 | Business follow-up for Yau. |
 
 **Next meeting:** Eshel is busy Wednesday and Thursday this week, suggests next week, with Eden in the loop (54:00).
+
+## Follow-up pass, 19 Nov 2026 (3 items)
+
+Yau listed these from the same 10 Nov call. Yau's side of the transcript is badly garbled, so the quotes below are Eshel's asks plus Yau's garbled replies. Scope was settled with Yau on 19 Nov. No video check was done for this pass.
+
+| # | What's asked | Source | Built |
+|---|---|---|---|
+| 6 | Show each question exactly as it is named in the survey, without a "Baseline:" / "Endline:" label in front | Eshel 16:40 "נט אינקאם, איך אני יודע אם זה הנט אינקאם שאני מתכוון?", Yau 16:52 (garbled) "כשמראות את השאלה, איך זה מופיע בשאלות". Clarified by Yau, 19 Nov | Under each measurement in Categories & Measurements, the line lists the survey question names as they are, e.g. Net income per hectare: "Net income · Net Income ÷ Land Size Ha · Size of Land (Ha)". This replaces item 2's "Baseline: Net income ÷ land area". The land area is named too, instead of "land area". |
+| 7 | Show the data sources each question appears in, and let people open them | Eshel 14:58 "תן לי גישה לשאלון עצמו", 15:35 "ובתוך הרודה, ללכת לקולום של... אני גורר ימינה, ימינה, ימינה, עד שאני מגיע לשאלה", 17:11 "Navigation ל-ROData, שכאילו מסמן את ה-colum שבחרת" | Every question name has a chip for each source it appears in. Clicking a chip opens that source's raw data, scrolled to the question's column, with the column highlighted. "Back to Categories & Measurements" returns to the same search. A question with the same name in two sources is now one row with two chips (Farmer_UID, Match_Notes, Match_Status and others). Names that differ, even only in capitals ("Net income" and "Net Income"), stay apart, because that is how the surveys name them. |
+| 8 | In the cell drill-down, show the table's filters and let people remove them | Eshel 43:12 "אני רוצה את כל החקלאים, כאילו, גם אם החליפו קרופ", Yau 43:23 (garbled) "תוריד את ה... את קרופ". Low confidence on the anchor. The ask comes from Yau's notes | "Contributing source records" has a new "Filters on this table" panel. Remove previews the cell without that filter: the value, the record count and the list update, the added records are marked "Filtered out of table", and a note says the table has not changed. "Put back" and "Put all back" undo it. "Remove from table" applies it to the table. A table with no filters says so. |
+
+**Assumptions:** On a merged row, View and Edit open the first source's question (Baseline when it has one). The chips give access to each source. Chips always open the in-app raw data, not the platform link, because only the in-app view can highlight the column.

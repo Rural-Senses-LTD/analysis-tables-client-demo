@@ -18,7 +18,7 @@ class TovCall20261110Tests(unittest.TestCase):
         return self.page.evaluate(
             """tab => { openDefinitions(tab);
               return [...document.querySelectorAll('[data-def-section="source"] .def-library-row')]
-                .map(r => ({label: r.querySelector('strong').textContent, sub: r.querySelector('p').textContent})); }""",
+                .map(r => ({label: r.querySelector('strong').textContent, sub: r.querySelector('.def-vars, p').textContent})); }""",
             tab,
         )
 
@@ -29,11 +29,12 @@ class TovCall20261110Tests(unittest.TestCase):
             self.assertEqual(labels, sorted(labels, key=str.casefold), tab)
 
     # Item 2: project measurements name the source question per data source instead of a generic line.
+    # Since 19 Nov the names show exactly as in the survey, with the data source as a chip after each one.
     def test_project_measurements_name_their_source_questions(self):
         rows = {r["label"]: r["sub"] for r in self.library_rows("measurements")}
-        self.assertIn("Baseline: Net income", rows["Plot net income"])
-        self.assertIn("Endline: Net Income", rows["Plot net income"])
-        self.assertIn("÷ land area", rows["Net income per hectare"])
+        self.assertIn("Net incomeBaseline", rows["Plot net income"])
+        self.assertIn("Net IncomeEndline", rows["Plot net income"])
+        self.assertIn("÷Land Size Ha", rows["Net income per hectare"])
         self.assertNotIn("Calculated from source questions", rows.values())
 
     # Item 3: with several series, each bar carries its own N; the dot list under the category is gone.
