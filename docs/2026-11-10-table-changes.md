@@ -73,3 +73,18 @@ Yau reviewed the first follow-up live and asked for these changes. Scope was set
 | 11 | Change the identifier questions to the farmer's name in all tables: Baseline "Name", Endline "Farmer Name" | Done as the new default for every table. Saved tables still on the old Farmer_UID default move over once per browser. A later deliberate choice of Farmer_UID in the builder is kept. **Effect on the numbers:** tables now match Baseline and Endline farmers by name, which pairs 188 farmers instead of 240, because 52 names are spelled differently between the surveys. Every matched table count and mean changes. |
 
 **Fix, 19 Nov 2026 (Yau):** the variable list for a new measurement also offered project measurements (Income per hectare, Land size, and their change and change %). It now offers only the 22 raw survey questions. A definition saved earlier with a project measurement as an input keeps it, labelled "(project measurement · Baseline)".
+
+## Third follow-up, 19 Nov 2026: merge questions that are basically the same across sources (Yau)
+
+- **Category questions** follow the question links the tables already use: Baseline Crop / Crop, Woreda / Wareda, Irrigation Method / Irrigation Type, Name / Farmer Name and so on. In Categories & Measurements each is now one row (e.g. "Crop") showing each source's own name next to its chip: "Baseline Crop [Baseline] · Crop [Endline]".
+- **Numeric questions** that are the same are merged into one question. They are names that differ only in case or punctuation, plus the Baseline/Endline pairs the project measurements already treat as one. Five pairs:
+  - Net income / Net Income
+  - Total Expenses / Total expenses
+  - Land Size Ha / Size of Land (Ha)
+  - Yield kg / Total Yield per plot (in Kg per Season)
+  - income ETB / Income per plot (in Birr)
+
+  The merged question takes the Endline name, as the later survey.
+- **In a new measurement**, a merged question is offered once. "VAR1 appears in" lists each source with its own question name, link, count and sample.
+- **The calculation reads each source's own question for that source's column.** So a measurement on merged questions gets a Baseline column, an Endline column and change. Checked: Net Income ÷ Size of Land (Ha) gives the same numbers as the project measurement Net income per hectare in every column.
+- **Older definitions:** a definition saved earlier that uses one source's question keeps it, labelled "(Baseline only)".

@@ -55,10 +55,10 @@ class Followup20261119bTests(unittest.TestCase):
         p.evaluate("openDefinition('measure')")
         values = p.locator('[data-definition-input="0"] option').evaluate_all("els => els.map(o => o.value)")
         texts = p.locator('[data-definition-input="0"] option').all_inner_texts()
-        self.assertTrue(values and all(p.evaluate("id => fieldMap.has(id)", v) for v in values))
+        self.assertTrue(values and all(p.evaluate("id => fieldMap.has(id) || numericQuestionMap.has(id)", v) for v in values))
         for project_measurement in ("Income per hectare", "Land size", "Yield per hectare"):
             self.assertFalse(any(t.startswith(project_measurement + " ·") or t.startswith(project_measurement + " change") for t in texts), project_measurement)
-        self.assertIn("Land Size Ha", texts)
+        self.assertIn("Size of Land (Ha)", texts)
 
     def test_a_saved_definition_using_a_project_measurement_keeps_it(self):
         p = self.page
@@ -76,11 +76,11 @@ class Followup20261119bTests(unittest.TestCase):
         p.evaluate("openDefinition('measure')")
         p.locator('#definition-name').fill('Net income check')
         self.pick(0, "Net Income")
-        p.locator('.def-var-sources [data-action="def-source-raw"]').first.click()
+        p.locator('.def-var-sources [data-action="def-source-raw"][data-source="e"]').click()
         self.assertEqual(p.locator('th.raw-focus-column').inner_text(), "Net Income")
         p.locator('[data-action="raw-data-return"]').click()
         self.assertEqual(p.locator('#definition-name').input_value(), 'Net income check')
-        self.assertEqual(p.evaluate("work.draft.inputs"), ["e:Net Income"])
+        self.assertEqual(p.evaluate("work.draft.inputs"), ["qn:net_income"])
 
     def open_region_crop_cell(self) -> None:
         self.page.evaluate(

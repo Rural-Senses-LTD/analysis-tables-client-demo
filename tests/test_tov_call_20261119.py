@@ -44,10 +44,11 @@ class TovCall20261119Tests(unittest.TestCase):
         uid = [r for r in rows if r["label"] == "Farmer_UID"]
         self.assertEqual(len(uid), 1)
         self.assertEqual(uid[0]["chips"], ["b:Farmer_UID", "e:Farmer_UID"])
-        # Different spelling stays apart: "Net income" (Baseline) and "Net Income" (Endline).
-        labels = [r["label"] for r in self.library("measurements")]
-        self.assertIn("Net income", labels)
-        self.assertIn("Net Income", labels)
+        # Since the later 19 Nov pass, names that are basically the same merge too: "Net income" (Baseline) and "Net Income"
+        # (Endline) are one row, each source's own name next to its chip.
+        rows = [r for r in self.library("measurements") if r["label"] in ("Net income", "Net Income")]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["chips"], ["b:Net income", "e:Net Income"])
 
     def test_chip_opens_raw_data_at_that_column_and_returns_to_library(self):
         result = self.page.evaluate(
