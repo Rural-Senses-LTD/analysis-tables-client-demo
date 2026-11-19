@@ -607,6 +607,7 @@ function questionValue(r,id,stack){
 }
 function value(r,id,stack=[]){
   if(id.startsWith('q:'))return questionValue(r,id,stack);
+  if(id.startsWith('qn:'))return numericQuestionValue(r,id,stack);
   if(fieldMap.has(id)){const answer=raw(r,id);return blank(answer)?answer:state.fieldOverrides?.[id]?.mapping?.[String(answer)]??answer;}
   if(id.startsWith('m:')){const [,metric,period]=id.split(':');return measure(r,metric,period);}
   const d=state.definitions.find(x=>x.id===id);
@@ -631,11 +632,14 @@ function measure(r,id,period='e'){
     return !finite(area)||area===0||!finite(n/area)?null:n/area;
   }
   if(m.sourceField){const f=fieldMap.get(id);return period==='value'||period===f.period?numeric(raw(r,id)):null;}
+  // A measurement built on merged questions has a value in each source that has all its inputs, read from that source's questions.
+  const periods=definitionPeriods(m);
+  if(periods){if(!periods.includes(period)||!sourceRecord(r,period))return null;const saved=valuePeriod;valuePeriod=period;try{return numeric(value(r,id));}finally{valuePeriod=saved;}}
   const sources=definitionSources(m);
   return period==='value'||sources.length===1&&sources.includes(period)?numeric(value(r,id)):null;
 }
 const numeric = x => finite(x)?x:null;
-function definitionSources(d){return [...new Set((d.inputs||[d.source]).filter(Boolean).flatMap(id=>fieldMap.has(id)?[fieldMap.get(id).period]:id.startsWith('m:')?['delta','pct'].includes(id.split(':')[2])?['b','e']:[id.split(':')[2]]:[]))];}
+function definitionSources(d){return [...new Set((d.inputs||[d.source]).filter(Boolean).flatMap(id=>id.startsWith('qn:')?Object.keys(numericQuestionMap.get(id)?.fields||{}):fieldMap.has(id)?[fieldMap.get(id).period]:id.startsWith('m:')?['delta','pct'].includes(id.split(':')[2])?['b','e']:[id.split(':')[2]]:[]))];}
 function aggregate(records,metric,period,stat,sourceIds,recordsBy){
   const rows=unique(records).filter(r=>period==='value'||period==='aggregate'||sourceRecord(r,period));
   // recordsBy: records already grouped by each source's own answer, so every observation is counted under its own source's group.
@@ -705,8 +709,42 @@ const questionMap=new Map(),questionOf=new Map();
     fields.forEach(f=>questionOf.set(f.id,id));
   }
 }
+// 19 Nov 2026 (Yau): numeric questions that are basically the same across data sources become one question ("qn:"), like the
+// category questions above. Two kinds count as the same: names that only differ in case, spacing or punctuation (Net income /
+// Net Income, Total Expenses / Total expenses), and the Baseline/Endline pairs the project measurements already treat as one
+// (Yield kg / Total Yield per plot, income ETB / Income per plot, Land Size Ha / Size of Land). The Endline name is used, as the
+// later survey; each source keeps its own question for its own column.
+const numericQuestionMap=new Map(),numericQuestionOf=new Map();
+{
+  const pairs=[],numericField=id=>fieldMap.get(id)?.type==='number'?fieldMap.get(id):null;
+  for(const m of baseMetrics){if(m.b&&m.e)pairs.push(['b:'+m.b,'e:'+m.e]);if(m.area)pairs.push(['b:Land Size Ha','e:Size of Land (Ha)']);}
+  const byKey=new Map();for(const f of DATA.fields){if(f.type!=='number')continue;const k=questionKey(f);if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(f);}
+  for(const fields of byKey.values())if(fields.length>1)for(let i=1;i<fields.length;i++)pairs.push([fields[0].id,fields[i].id]);
+  const groups=[];for(const pair of pairs){const fields=pair.map(numericField);if(fields.some(f=>!f)||fields[0].period===fields[1].period)continue;let g=groups.find(g=>pair.some(id=>g.has(id)));if(!g)groups.push(g=new Set());pair.forEach(id=>g.add(id));}
+  for(const g of groups){const fields=[...g].map(id=>fieldMap.get(id));if(new Set(fields.map(f=>f.period)).size!==fields.length)continue;
+    const order=dataSources().map(s=>s.id),named=[...fields].sort((a,b)=>order.indexOf(b.period)-order.indexOf(a.period))[0];
+    const id='qn:'+questionKey(named).replace(/ /g,'_');
+    numericQuestionMap.set(id,{id,questionId:id,question:true,numericQuestion:true,label:named.label,header:named.header,type:'number',unit:named.unit,sourceLabel:'',fields:Object.fromEntries(fields.map(f=>[f.period,f.id]))});
+    fields.forEach(f=>numericQuestionOf.set(f.id,id));}
+}
+function numericQuestionValue(r,id,stack){
+  const q=numericQuestionMap.get(id);if(!q)return null;
+  // In a source's own column, use that source's question only. Elsewhere (the definition preview), the first source with a value.
+  if(valuePeriod)return q.fields[valuePeriod]&&sourceRecord(r,valuePeriod)?value(r,q.fields[valuePeriod],stack):null;
+  const p=dataSources().map(s=>s.id).find(x=>q.fields[x]&&sourceRecord(r,x)&&!blank(value(r,q.fields[x],stack)));return p?value(r,q.fields[p],stack):null;
+}
+// Sources a calculated measurement can be shown in, one column each, when it uses a merged numeric question: every input
+// must exist in that source. Null for older definitions, which keep their rules (one source, or a combined value).
+function definitionPeriods(d){
+  const inputs=d?.kind==='measure'?d.inputs||[]:[];if(!inputs.some(id=>id.startsWith('qn:')))return null;
+  const per=id=>id.startsWith('qn:')?Object.keys(numericQuestionMap.get(id)?.fields||{}):fieldMap.has(id)?[fieldMap.get(id).period]:id.startsWith('m:')?(['delta','pct'].includes(id.split(':')[2])?[]:[id.split(':')[2]]):[];
+  return dataSources().map(s=>s.id).filter(p=>inputs.every(id=>per(id).includes(p)));
+}
+const perSourceDefinition=d=>(definitionPeriods(d)?.length||0)>0;
+const requiredDefinitionSources=d=>perSourceDefinition(d)?[]:definitionSources(d);
+const crossSourceDefinition=d=>!perSourceDefinition(d)&&definitionSources(d).length>1;
 const questionInfo=q=>{const members=Object.values(q.fields).map(id=>catalogue().find(x=>x.id===id)).filter(Boolean);return{...q,options:[...new Set(members.flatMap(m=>m.options||[]))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}))};};
-const fieldInfo = id => id===MIN_N_FIELD.id?MIN_N_FIELD:questionMap.has(id)?questionInfo(questionMap.get(id)):catalogue().find(x=>x.id===id);
+const fieldInfo = id => id===MIN_N_FIELD.id?MIN_N_FIELD:questionMap.has(id)?questionInfo(questionMap.get(id)):numericQuestionMap.has(id)?numericQuestionMap.get(id):catalogue().find(x=>x.id===id);
 const label = id => fieldInfo(id)?.label||metricInfo(id)?.label||id;
 function cohort(t){return recordPool(t);}
 function pathFor(r,fields){return fields.map(id=>[id,blank(value(r,id))?null:String(value(r,id))]);}
@@ -970,7 +1008,7 @@ function validateState(candidate,depth=0){
     for(const d of candidate.definitions){
       if(!d.id?.startsWith('custom-')||ids.has(d.id)||!d.label?.trim())throw Error('Invalid definition.');ids.add(d.id);
       if(d.kind==='measure'){
-        if(!Array.isArray(d.inputs)||d.inputs.some(id=>!fieldMap.has(id)&&!id.startsWith('m:')))throw Error('Connect definitions to source fields or standard measures.');
+        if(!Array.isArray(d.inputs)||d.inputs.some(id=>!fieldMap.has(id)&&!id.startsWith('m:')&&!numericQuestionMap.has(id)))throw Error('Connect definitions to source fields or standard measures.');
         compileFormula(d.formula,d.inputs);
       }else if(d.kind!=='category'||!fieldMap.has(d.source)||typeof d.mapping!=='object')throw Error('Invalid category definition.');
     }
@@ -1390,7 +1428,7 @@ function filterSourceNote(field){
     const sources=filterSourceIds(),n=askedIn(field,sources).length;
     return n&&n<sources.length?`<p class="help filter-source-note">Asked in ${n} of ${sources.length} selected data sources.</p>`:'';
   }
-  const required=fieldMap.has(field)?[fieldMap.get(field).period]:field.startsWith('m:')?(['delta','pct'].includes(field.split(':')[2])?['b','e']:[field.split(':')[2]]):definitionSources(state.definitions.find(d=>d.id===field)||{});
+  const required=fieldMap.has(field)?[fieldMap.get(field).period]:field.startsWith('m:')?(['delta','pct'].includes(field.split(':')[2])?['b','e']:[field.split(':')[2]]):requiredDefinitionSources(state.definitions.find(d=>d.id===field)||{});
   const missing=required.filter(id=>!sourceSettings(filterTable()).ids.includes(id));
   return missing.length?`<p class="help filter-source-note">To use values from ${esc(missing.map(sourceName).join(' and '))}, include ${missing.length===1?'that data source':'those data sources'} in Edit table.</p>`:'';
 }
@@ -1623,7 +1661,7 @@ const NON_ANALYTIC_FIELD_HEADERS=new Set(['Match_Status','Match_Notes','Outlier_
 function fieldAvailableInBuilder(f){
   const ids=work?.draft?.sources?.ids||dataSources().map(s=>s.id);
   if(f.question)return Object.keys(f.fields).some(id=>ids.includes(id));
-  const required=f.defined?definitionSources(f):f.period?[f.period]:[];
+  const required=f.defined?requiredDefinitionSources(f):f.period?[f.period]:[];
   return required.every(id=>ids.includes(id));
 }
 // Groups are offered only when they split records into a readable number of rows; names and IDs have one value per record.
@@ -1698,7 +1736,7 @@ function builderOrderedSelection(previous,selectedValues){return [...previous.fi
 function builderSyncPeriods(d){
   const s=d.sources,countOnly=d.metrics.length===1&&d.metrics[0]==='count';
   if(countOnly){d.countMode=d.countMode||(d.periods.includes('value')?'linked':'source');d.periods=d.countMode==='linked'?['value']:[...s.ids];d.change=false;d.stats=['count'];return;}
-  const crossSource=id=>{const def=state.definitions.find(item=>item.id===id&&item.kind==='measure');return def&&definitionSources(def).length>1;};
+  const crossSource=id=>{const def=state.definitions.find(item=>item.id===id&&item.kind==='measure');return def&&crossSourceDefinition(def);};
   if(d.metrics.length&&d.metrics.every(crossSource)){d.periods=['value'];d.change=false;s.mode='separate';return;}
   if(work.id&&!work.sourceSelectionChanged&&!work.measurementSelectionChanged)return;
   d.periods=[...s.ids,...(d.metrics.some(crossSource)?['value']:[])];
@@ -1756,7 +1794,7 @@ function readBuilder(){
 function builderCandidate(){
   readBuilder();const d=clone(work.draft);
   if(!d.title.trim()||!d.metrics.length||!d.stats.length)throw Error('Enter a title and choose at least one measurement and statistic.');
-  validateSourceSettings(d);if(d.sources.mode==='aggregate'&&d.metrics.some(id=>{const def=state.definitions.find(item=>item.id===id);return def&&definitionSources(def).length>1;}))throw Error('Calculations that combine data sources need the “Side by side” setting.');const usedFields=[...d.rows,...d.columns,...d.metrics,...leaves(d.filters.source).flatMap(c=>[c.field,...(c.otherField?[c.otherField]:[]),...(c.refs||[])]),...leaves(d.filters.measures).flatMap(c=>[c.field,...(c.otherField?[c.otherField]:[]),...(c.refs||[])])],required=[...new Set(usedFields.flatMap(id=>fieldMap.has(id)?[fieldMap.get(id).period]:id.startsWith('m:')?definitionSources({inputs:[id]}):state.definitions.some(def=>def.id===id)?definitionSources(state.definitions.find(def=>def.id===id)):[]))],missing=required.filter(id=>!d.sources.ids.includes(id));if(missing.length)throw Error('Select '+missing.map(sourceName).join(', ')+' to use the categories, measurements and filters in this table.');
+  validateSourceSettings(d);if(d.sources.mode==='aggregate'&&d.metrics.some(id=>{const def=state.definitions.find(item=>item.id===id);return def&&crossSourceDefinition(def);}))throw Error('Calculations that combine data sources need the “Side by side” setting.');const usedFields=[...d.rows,...d.columns,...d.metrics,...leaves(d.filters.source).flatMap(c=>[c.field,...(c.otherField?[c.otherField]:[]),...(c.refs||[])]),...leaves(d.filters.measures).flatMap(c=>[c.field,...(c.otherField?[c.otherField]:[]),...(c.refs||[])])],required=[...new Set(usedFields.flatMap(id=>fieldMap.has(id)?[fieldMap.get(id).period]:id.startsWith('m:')?definitionSources({inputs:[id]}):state.definitions.some(def=>def.id===id)?requiredDefinitionSources(state.definitions.find(def=>def.id===id)):[]))],missing=required.filter(id=>!d.sources.ids.includes(id));if(missing.length)throw Error('Select '+missing.map(sourceName).join(', ')+' to use the categories, measurements and filters in this table.');
   if(d.change&&!['mean','median','sum'].includes(d.changeStat??'mean'))throw Error('Choose how to calculate % change in Data sources & comparison.');
   if(new Set([...d.rows,...d.columns]).size!==d.rows.length+d.columns.length)throw Error('Use each group once.');
   const original=tableById(work.id),structure=t=>JSON.stringify([t.rows,t.columns,t.metrics,t.periods,sourceSettings(t)]);
@@ -1955,7 +1993,10 @@ const byLabel=(a,b)=>String(a.d.label).localeCompare(String(b.d.label),undefined
 return [...custom.sort(byLabel),...mergeSourceQuestions(existing.map(d=>({d,type:fieldMap.has(d.id)?'field':'standard'}))).sort(byLabel)];}
 // 19 Nov 2026 (10 Nov call follow-up): a survey question shows once, under its exact survey name, with the data sources it appears in.
 // Farmer_UID or Match_Notes used to be two rows ("Baseline", "Endline"). Only identical names merge, so "Net income" and "Net Income" stay apart.
-function mergeSourceQuestions(items){const out=[],byName=new Map();for(const x of items){if(x.type!=='field'){out.push(x);continue;}const key=String(x.d.label).trim(),hit=byName.get(key);if(hit){hit.refs.push(x.d);continue;}const item={...x,refs:[x.d]};byName.set(key,item);out.push(item);}return out;}
+// Later the same day: questions that are basically the same across sources merge too (Baseline Crop / Crop, Woreda / Wareda,
+// Net income / Net Income, Yield kg / Total Yield per plot...), using the same question links the tables use. The row takes the
+// merged question's name, and each source's own name sits next to its chip.
+function mergeSourceQuestions(items){const out=[],byKey=new Map();for(const x of items){if(x.type!=='field'){out.push(x);continue;}const q=questionOf.get(x.d.id)||numericQuestionOf.get(x.d.id),key=q||'name:'+String(x.d.label).trim(),hit=byKey.get(key);if(hit){hit.refs.push(x.d);continue;}const merged=q?(questionMap.get(q)||numericQuestionMap.get(q)):null;const item={...x,d:merged&&Object.keys(merged.fields).length>1?{...x.d,label:merged.label}:x.d,refs:[x.d]};byKey.set(key,item);out.push(item);}return out;}
 // Land area behind the per-hectare measurements, as named in each survey (same headers measure() divides by).
 const LAND_AREA_HEADERS={b:'Land Size Ha',e:'Size of Land (Ha)'};
 function questionRefsByName(entries){const groups=new Map();for(const e of entries){if(!e.header)continue;if(!groups.has(e.header))groups.set(e.header,[]);groups.get(e.header).push(e);}return [...groups].map(([name,refs])=>({name,refs}));}
@@ -1964,12 +2005,13 @@ function fieldRefs(fields){return fields.map(f=>({sourceId:f.period||String(f.id
 const SOURCE_CHIP_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/></svg>';
 function sourceChipHTML(ref){const name=sourceName(ref.sourceId);if(!fieldMap.has(ref.sourceId+':'+ref.header))return `<span class="def-source-chip is-static">${esc(name)}</span>`;return `<button type="button" class="def-source-chip" data-action="def-source-raw" data-field="${esc(ref.header)}" data-source="${esc(ref.sourceId)}" title="Open ${esc(name)} raw data at this question" aria-label="${esc(ref.header)}, ${esc(name)}: open raw data at this question">${esc(name)}${SOURCE_CHIP_ICON}</button>`;}
 function defVariablesHTML(d,type,refs){
-  if(type==='field')return `<div class="def-vars"><div class="def-var-line"><span class="def-appears">Appears in</span>${fieldRefs(refs||[d]).map(sourceChipHTML).join('')}</div></div>`;
+  if(type==='field'){const list=fieldRefs(refs||[d]);if(new Set(list.map(r=>r.header)).size<=1)return `<div class="def-vars"><div class="def-var-line"><span class="def-appears">Appears in</span>${list.map(sourceChipHTML).join('')}</div></div>`;
+    return `<div class="def-vars"><div class="def-var-line">${questionRefsByName(list).map(v=>`<span class="def-q"><span class="def-q-name">${esc(v.name)}</span>${v.refs.map(sourceChipHTML).join('')}</span>`).join('<span class="def-var-sep" aria-hidden="true">·</span>')}</div></div>`;}
   const {num,den}=defVariables(d);if(!num.length)return `<p>${esc('Calculated from source questions')}</p>`;
   const line=(list,op='')=>`<div class="def-var-line">${op?`<span class="def-var-op" aria-label="divided by">${op}</span>`:''}${list.map(v=>`<span class="def-q"><span class="def-q-name">${esc(v.name)}</span>${v.refs.map(sourceChipHTML).join('')}</span>`).join('<span class="def-var-sep" aria-hidden="true">·</span>')}</div>`;
   return `<div class="def-vars">${line(num)}${den.length?line(den,'÷'):''}</div>`;
 }
-function defVariablesText(d,type,refs){if(type==='field')return fieldRefs(refs||[d]).map(r=>sourceName(r.sourceId)).join(' ');const {num,den}=defVariables(d);return [...num,...den].map(v=>v.name+' '+v.refs.map(r=>sourceName(r.sourceId)).join(' ')).join(' ');}
+function defVariablesText(d,type,refs){if(type==='field')return fieldRefs(refs||[d]).map(r=>r.header+' '+sourceName(r.sourceId)).join(' ');const {num,den}=defVariables(d);return [...num,...den].map(v=>v.name+' '+v.refs.map(r=>sourceName(r.sourceId)).join(' ')).join(' ');}
 // 10 Nov 2026: "Calculated from source questions" did not say which question sits behind Net income or Household income.
 // Name the source question per data source, so the row answers that without opening it.
 function defSourceQuestions(d){const parts=dataSources().map(s=>{const f=d.sourceFields?.[s.id]||d[s.id];return f?s.label+': '+f+(d.area||d.denominatorFields?.[s.id]?' ÷ '+(d.denominatorFields?.[s.id]||'land area'):''):'';}).filter(Boolean);return parts.join(' · ')||'Calculated from source questions';}
@@ -2003,13 +2045,14 @@ function definitionCategoryAnswers(source){const f=fieldMap.get(source),records=
 function openDefinition(kind,id){const existing=state.definitions.find(x=>x.id===id),inputs=definitionInputs(),categorySource=catalogue().find(f=>!f.defined&&f.type==='category')||DATA.fields[0];work={kind:'definition',existing:id,draft:existing?clone(existing):{id:'custom-'+crypto.randomUUID(),kind,label:'',unit:'',formula:'VAR1',inputs:inputs.length?[inputs[0].id]:[],source:categorySource?.id,mapping:{}}};renderDefinition();}
 // 19 Nov 2026 (Yau): a calculated measurement is built from raw survey questions only. Project measurements
 // (Income per hectare, Land size, their change and change %) are already calculations, so they are not offered as inputs.
-function definitionInputs(){return catalogue().filter(f=>f.type==='number'&&fieldMap.has(f.id)&&!f.defined);}
+// Questions that are the same across sources are offered once ("qn:"), so the measurement gets a value in each source's column.
+function definitionInputs(){return [...catalogue().filter(f=>f.type==='number'&&fieldMap.has(f.id)&&!f.defined&&!numericQuestionOf.has(f.id)),...numericQuestionMap.values()];}
 // 19 Nov 2026 (Yau): pick a variable by its question name alone, A to Z. A source is added to the name only when two sources
 // use exactly the same name for a numeric question, so the two options can still be told apart.
 function variableOptionsHTML(fields,current){
   // A definition saved before this change may still use a project measurement. Keep it listed, labelled, so opening it changes nothing.
   const legacy=current&&!fields.some(f=>f.id===current)?catalogue().find(f=>f.id===current):null;if(legacy)fields=[...fields,{...legacy,legacyInput:true}];
-  const name=f=>plainFieldLabel(f)+(f.legacyInput?' (project measurement'+(f.sourceLabel?' · '+f.sourceLabel:'')+')':''),count=new Map();fields.forEach(f=>count.set(name(f),(count.get(name(f))||0)+1));return [...fields].sort((a,b)=>name(a).localeCompare(name(b),undefined,{numeric:true,sensitivity:'base'})).map(f=>`<option value="${esc(f.id)}"${selected(f.id,current)}>${esc(name(f)+(count.get(name(f))>1?' · '+(f.sourceLabel||sourceName(f.period)):''))}</option>`).join('');}
+  const name=f=>plainFieldLabel(f)+(!f.legacyInput?'':fieldMap.has(f.id)?' ('+(f.sourceLabel||sourceName(f.period))+' only)':' (project measurement'+(f.sourceLabel?' · '+f.sourceLabel:'')+')'),count=new Map();fields.forEach(f=>count.set(name(f),(count.get(name(f))||0)+1));return [...fields].sort((a,b)=>name(a).localeCompare(name(b),undefined,{numeric:true,sensitivity:'base'})).map(f=>`<option value="${esc(f.id)}"${selected(f.id,current)}>${esc(name(f)+(count.get(name(f))>1?' · '+(f.sourceLabel||sourceName(f.period)):''))}</option>`).join('');}
 // Under each variable: the data sources that hold a question with this exact name, each a link to the raw data at that
 // column, with how many records answered and the first few values, so you can check it is the question you mean.
 function variableSourceRowHTML(sourceId,name,note=''){const s=dataSources().find(x=>x.id===sourceId);if(!s)return '';const values=s.records.map(r=>r.values?.[name]),answered=values.filter(v=>!blank(v)),sample=answered.slice(0,5).map(v=>finite(numeric(v))?fmt(numeric(v),numeric(v)%1?2:0):String(v));
@@ -2019,6 +2062,8 @@ function variableSourcesHTML(id,index){
   // A project measurement taken as an input (e.g. Income per hectare in Baseline) lists the questions it is calculated from.
   if(id.startsWith('m:')){const [,metric,period]=id.split(':'),m=metricInfo(metric),num=m?.sourceFields?.[period]||m?.[period],den=m&&(m.area||m.denominatorFields)?m.denominatorFields?.[period]||LAND_AREA_HEADERS[period]:null;
     return box(`VAR${index+1} is calculated from`,[num,den].filter(name=>name&&fieldMap.has(period+':'+name)).map(name=>variableSourceRowHTML(period,name,'name')).join(''));}
+  // A merged question lists each source with its own question name.
+  if(id.startsWith('qn:')){const q=numericQuestionMap.get(id);if(!q)return '';return box(`VAR${index+1} appears in`,Object.entries(q.fields).map(([sourceId,fid])=>variableSourceRowHTML(sourceId,fieldMap.get(fid).header,'name')).join(''));}
   const f=fieldMap.get(id);if(!f)return '';const name=f.header,holders=dataSources().filter(s=>fieldMap.has(s.id+':'+name)),several=holders.length>1;
   // The calculation reads one source's column. When another source has the same name, say which one is used.
   return box(`VAR${index+1} appears in`,holders.map(s=>variableSourceRowHTML(s.id,name,several?(s.id===f.period?'used':'unused'):'')).join(''));
@@ -2062,7 +2107,7 @@ function contributorColumns(t){
   for(const id of new Set(t.metrics)){
     const m=metricInfo(id),column={kind:'measurement',id,label:m.label,unit:m.unit||''};
     if(m.sourceField){add(fieldMap.get(m.sourceField)?.period||'value',{...column,period:'value'});continue;}
-    if(!m.b&&!m.sourceFields&&id!=='count'){const sources=definitionSources(m);add(sources.length===1?sources[0]:'value',{...column,period:'value'});continue;}
+    if(!m.b&&!m.sourceFields&&id!=='count'&&!perSourceDefinition(m)){const sources=definitionSources(m);add(sources.length===1?sources[0]:'value',{...column,period:'value'});continue;}
     for(const sourceId of periods){if(sourceId!=='value'&&m.sourceFields&&!m.sourceFields[sourceId])continue;add(sourceId,{...column,period:sourceId});}
   }
   return [...groups.values()].flat().map((column,index,columns)=>({...column,groupStart:index===0||columns[index-1].sourceId!==column.sourceId}));
