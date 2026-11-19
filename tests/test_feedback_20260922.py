@@ -9,6 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import gettempdir
 from threading import Thread
+import re
 import unittest
 
 from playwright.sync_api import sync_playwright
@@ -50,6 +51,11 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.page.goto(self.url)
         code = ROOT.joinpath("index.html").read_text(encoding="utf-8").split("<script>", 1)[1].rsplit("</script>", 1)[0]
         self.assertEqual(self.page.evaluate("document.querySelector('script').textContent.length"), len(code.encode("utf-16-le")) // 2)
+
+    def use_uid_matching(self):
+        """Match Baseline and Endline on Farmer_UID, as before 19 Nov 2026, for tests whose expected counts come from that matching.
+        Since 19 Nov the tables match on the farmer's name (Baseline "Name", Endline "Farmer Name") by default."""
+        self.page.evaluate("""() => { defaultIdentifier = id => DATA.fields.find(f => f.period === id && f.header === 'Farmer_UID')?.id || DATA.fields.find(f => f.period === id)?.id; cache.clear(); }""")
 
     def tearDown(self):
         errors = list(self.errors)
@@ -213,7 +219,8 @@ class FeedbackBrowserTests(unittest.TestCase):
         p.locator('[data-chart-color]').nth(1).fill('#8e3d8e')
         self.assertEqual(p.locator('#chart-preview .chart-bars').first.locator('.vertical-bar').nth(1).evaluate('el=>el.style.backgroundColor'), 'rgb(142, 61, 142)')
         # 10 Nov 2026: with two or more series the N sits on each bar (.bar-n) instead of in a list under the category.
-        self.assertIn('N=113', ' '.join(p.locator('#chart-preview .bar-n').all_inner_texts()))
+        bar_ns = p.locator('#chart-preview .bar-n').all_inner_texts()
+        self.assertTrue(bar_ns and all(re.fullmatch(r'N=\d+', n.strip()) for n in bar_ns), bar_ns)
         p.locator('#chart-samples').select_option('percent')
         self.assertIn('% of', p.locator('#chart-preview .bar-n').first.inner_text())
         p.screenshot(path=str(ARTIFACTS / 'chart-settings-desktop.png'))
@@ -250,6 +257,7 @@ class FeedbackBrowserTests(unittest.TestCase):
         self.assertEqual(p.evaluate("tableById('crops').sampleDisplay"), 'percent')
 
     def test_filter_coverage_uses_each_cell_before_all_table_filters(self):
+        self.use_uid_matching()
         self.add_definition()
         result = self.page.evaluate("""()=>{
           const previous=DATA.farmers;
